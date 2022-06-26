@@ -1,11 +1,32 @@
 ---
-title: "Predicción del Número de Vehículos"
-author: "Brayan Ortiz, Juan Peña, Thalea Hesse, Juan Falcon, Daniel Espinal"
+title: "Agrupamiento-Universidades"
+author: "Brayan M. Ortiz Fajardo, Juan Felipe Peña Tamayo, Thalea Marina Hesse, Juan Sebastián Falcon, Daniel Espinal Mosquera"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library("readxl")
 ```
+
+```{r include=FALSE}
+datos <- read_excel("registros_autos_entrenamiento.xlsx")
+```
+
+Los datos originales contienen, únciamente, una variable: La fecha de registro. Para buscar un óptimo análisis, se decidió generar 4 variables nuevas con base a la fecha de registro, estas son: día de la semana, número de día del mes, mes y año.
+```{r}
+datos$Fecha <- as.Date(datos$Fecha)
+datos$Dia_semana <- weekdays(datos$Fecha)
+datos$Dia <- format(datos$Fecha, "%d")
+datos$Mes <- format(datos$Fecha, "%m")
+datos$Anio <- format(datos$Fecha, "%y")
+
+datos <- datos[-1]
+```
+
+Cosas interesantes:
+En semana santa (aprox por semanas de abril) los días jueves, viernes, sábado y domingo suelen haber pocos registros en todos los años.
+Los días festivos entre semana suelen generar datos atípicos en los días anteriores o posteriores (además de que el día festivo como tal también suele ser atípico)
+
 
