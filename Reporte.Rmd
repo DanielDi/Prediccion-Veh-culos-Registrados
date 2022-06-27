@@ -11,10 +11,11 @@ library("readxl")
 ```
 
 ```{r include=FALSE}
-datos <- read_excel("registros_autos_entrenamiento.xlsx")
+datos <- read_excel("registros_entrenamiento_festivos.xlsx")
 ```
 
 Los datos originales contienen, únciamente, una variable: La fecha de registro. Para buscar un óptimo análisis, se decidió generar 4 variables nuevas con base a la fecha de registro, estas son: día de la semana, número de día del mes, mes y año.
+Además, se generó una variable binaria llamada "festivo" para conocer si un día del año es una festividad en Colombia, pues estos días suelen presentar valores atípicos en las unidades registradas y esta variable aporta esta información.
 ```{r}
 datos$Fecha <- as.Date(datos$Fecha)
 datos$Dia_semana <- weekdays(datos$Fecha)
@@ -22,6 +23,7 @@ datos$Dia <- format(datos$Fecha, "%d")
 datos$Mes <- format(datos$Fecha, "%m")
 datos$Anio <- format(datos$Fecha, "%y")
 
+datos <- datos[-1]
 datos <- datos[-1]
 ```
 
