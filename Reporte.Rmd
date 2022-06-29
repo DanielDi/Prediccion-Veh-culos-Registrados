@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library("readxl")
+library(dplyr)
 ```
 
 ```{r include=FALSE}
@@ -18,17 +19,56 @@ Los datos originales contienen, únciamente, una variable: La fecha de registro.
 Además, se generó una variable binaria llamada "festivo" para conocer si un día del año es una festividad en Colombia, pues estos días suelen presentar valores atípicos en las unidades registradas y esta variable aporta esta información.
 ```{r}
 datos$Fecha <- as.Date(datos$Fecha)
+datos$Ts <- as.numeric(datos$Fecha)
 datos$Dia_semana <- weekdays(datos$Fecha)
 datos$Dia <- format(datos$Fecha, "%d")
-datos$Mes <- format(datos$Fecha, "%m")
+datos$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos$Anio <- format(datos$Fecha, "%y")
 
 datos <- datos[-1]
 datos <- datos[-1]
 ```
-
+```{r}
+plot(datos$Ts, datos$Unidades)
+```
 Cosas interesantes:
 En semana santa (aprox por semanas de abril) los días jueves, viernes, sábado y domingo suelen haber pocos registros en todos los años.
 Los días festivos entre semana suelen generar datos atípicos en los días anteriores o posteriores (además de que el día festivo como tal también suele ser atípico)
 
+
+```{r}
+t_modelo <- lm(Unidades ~ Ts,datos)
+T_pred <- predict(t_modelo, datos)
+datos$sin_trend <- datos$Unidades - T_pred
+
+plot(datos$Ts, datos$Unidades)
+lines(datos$Ts, T_pred, type="l", col = "red")
+plot(datos$Ts, datos$sin_trend)
+```
+```{r include=FALSE}
+mes_means <- datos %>% group_by(Mes) %>% summarize(Mean = mean(sin_trend))
+datos$sin_season1 <- datos$sin_trend - mes_means$Mean[as.numeric(datos$Mes)]
+
+plot(datos$Ts, datos$sin_season1)
+plot(mes_means)
+```
+```{r include=FALSE}
+dia_means <- datos %>% group_by(Dia_semana) %>% summarize(Mean = mean(sin_season1))
+datos$sin_season2 <- datos$sin_season1 - dia_means$Mean[as.numeric(datos$Dia_semana)]
+
+plot(datos$Ts, datos$sin_season2)
+plot(dia_means)
+```
+
+```{r include=FALSE}
+datos$diffs <- c(0, diff(datos$sin_season1))
+
+plot(datos$Ts, datos$diffs)
+```
+
+```{r include=FALSE}
+datos$diffs <- c(c(0,0,0,0,0,0, 0), diff(datos$diffs, 7))
+
+plot(datos$Ts, datos$diffs)
+```
 
