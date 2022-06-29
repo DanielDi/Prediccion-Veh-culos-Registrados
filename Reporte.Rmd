@@ -9,6 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library("readxl")
 library(dplyr)
+library(stats)
+library('simts')
+library('tseries')
 ```
 
 ```{r include=FALSE}
@@ -24,8 +27,8 @@ datos$Dia_semana <- weekdays(datos$Fecha)
 datos$Dia <- format(datos$Fecha, "%d")
 datos$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos$Anio <- format(datos$Fecha, "%y")
+datos$Wday <- lubridate::wday(datos$Fecha, week_start = 1)
 
-datos <- datos[-1]
 datos <- datos[-1]
 ```
 ```{r}
@@ -45,30 +48,51 @@ plot(datos$Ts, datos$Unidades)
 lines(datos$Ts, T_pred, type="l", col = "red")
 plot(datos$Ts, datos$sin_trend)
 ```
-```{r include=FALSE}
+```{r}
+
+seasonM <- setRefClass("seasonM", fields = list(means = "data.frame"), methods = list(
+                       predict = function(input)
+                       {
+                           return (means$Mean[as.numeric(input$Mes)])
+                       }))
+
 mes_means <- datos %>% group_by(Mes) %>% summarize(Mean = mean(sin_trend))
-datos$sin_season1 <- datos$sin_trend - mes_means$Mean[as.numeric(datos$Mes)]
+s1_modelo <- new('seasonM', means = mes_means)
+datos$sin_season1 <- datos$sin_trend - s1_modelo$predict(datos)
+
+
 
 plot(datos$Ts, datos$sin_season1)
 plot(mes_means)
 ```
-```{r include=FALSE}
-dia_means <- datos %>% group_by(Dia_semana) %>% summarize(Mean = mean(sin_season1))
-datos$sin_season2 <- datos$sin_season1 - dia_means$Mean[as.numeric(datos$Dia_semana)]
+```{r}
+seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods = list(
+                       predict = function(input)
+                       {
+                           return (means$Mean[input$Wday])
+                       }))
+
+dia_means <- datos %>% group_by(Wday) %>% summarize(Mean = mean(sin_season1))
+s2_modelo <- new('seasonW', means = dia_means)
+datos$sin_season2 <- datos$sin_season1 - s1_modelo$predict(datos)
 
 plot(datos$Ts, datos$sin_season2)
 plot(dia_means)
 ```
 
-```{r include=FALSE}
-datos$diffs <- c(0, diff(datos$sin_season1))
-
-plot(datos$Ts, datos$diffs)
+```{r}
+acf(datos$sin_season2)
+m = auto_corr(datos$Unidades, pacf = TRUE)
+plot(m)
 ```
-
-```{r include=FALSE}
-datos$diffs <- c(c(0,0,0,0,0,0, 0), diff(datos$diffs, 7))
-
-plot(datos$Ts, datos$diffs)
+Resultado: p = 8 (porque tiene todo) y q = 7 
+```{r}
+# no funciona .... :(
+R_modelo <- arma(datos$sin_season2, order= c(8,7))
+predict(R_modelo)
 ```
+Predict final:
+```{r}
 
+predict_final <- predict(t_modelo, datos) + s1_modelo$predict(datos) + s2_modelo$predict(datos) + predict(R_modelo, datos)
+```
