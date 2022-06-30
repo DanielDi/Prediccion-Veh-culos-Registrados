@@ -9,7 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library("readxl")
 ```
-
+# Lectura de los datos
+Los datos corresponden a la suma de los 365 días que tienen los años 2013, 2014, 2015 y 2017 sumados a los 366 días que tiene los años 2012 y 2016. En total, se tienen 2192 datos.
 ```{r include=FALSE}
 datos <- read_excel("registros_entrenamiento_festivos.xlsx")
 ```
@@ -27,8 +28,12 @@ datos <- datos[-1]
 datos <- datos[-1]
 ```
 
-Cosas interesantes:
-En semana santa (aprox por semanas de abril) los días jueves, viernes, sábado y domingo suelen haber pocos registros en todos los años.
-Los días festivos entre semana suelen generar datos atípicos en los días anteriores o posteriores (además de que el día festivo como tal también suele ser atípico)
+## Separación de datos en entrenamiento y validacion
+De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, tenemos 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
+
+```{r}
+df_train <- datos[datos$Anio != "17", ]
+df_val <- datos[datos$Anio == "17", ]
+```
 
 
