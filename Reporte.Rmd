@@ -142,8 +142,9 @@ plot(m)
 Resultado: p = 8 (porque tiene todo) y q = 7 
 ```{r}
 # no funciona .... :(
-R_modelo <- arma(datos$sin_season2, order= c(8,7))
-predict(R_modelo)
+R_modelo <-  arima(datos$sin_season2, order=c(8,0,1))
+predict(R_modelo, n.ahead = 365) # predicion para el an~o después
+
 ```
 Predict final:
 ```{r}
