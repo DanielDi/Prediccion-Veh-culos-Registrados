@@ -65,8 +65,8 @@ datos[, c(2:12)] <- as.data.frame(scale(datos[, c(2:12)], center = TRUE, scale =
 De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, tenemos 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
 
 ```{r, echo=FALSE}
-# df_train <- datos[datos$Anio != "17", ]
-# df_val <- datos[datos$Anio == "17", ]
+df_train_ts <- datos[datos$Anio != "17", ]
+df_val <- datos[datos$Anio == "17", ]
 datos1 <- sample(2, nrow(datos),
                    replace = T,
                    prob = c(0.75, 0.25))
@@ -92,15 +92,15 @@ summary(lm_)
 ```{r, echo=FALSE}
 df_val$Y_predict <- predict(glm_, newdata=df_val)
 ```
-
+## Modelo time series
 ```{r}
-t_modelo <- lm(Unidades ~ Ts,datos)
-T_pred <- predict(t_modelo, datos)
-datos$sin_trend <- datos$Unidades - T_pred
+t_modelo <- lm(Unidades ~ Ts,df_train_ts)
+T_pred <- predict(t_modelo, df_train_ts)
+df_train_ts$sin_trend <- df_train_ts$Unidades - T_pred
 
-plot(datos$Ts, datos$Unidades)
-lines(datos$Ts, T_pred, type="l", col = "red")
-plot(datos$Ts, datos$sin_trend)
+plot(df_train_ts$Ts, df_train_ts$Unidades)
+lines(df_train_ts$Ts, T_pred, type="l", col = "red")
+plot(df_train_ts$Ts, df_train_ts$sin_trend)
 ```
 ```{r}
 
@@ -110,13 +110,13 @@ seasonM <- setRefClass("seasonM", fields = list(means = "data.frame"), methods =
                            return (means$Mean[as.numeric(input$Mes)])
                        }))
 
-mes_means <- datos %>% group_by(Mes) %>% summarize(Mean = mean(sin_trend))
+mes_means <- df_train_ts %>% group_by(Mes) %>% summarize(Mean = mean(sin_trend))
 s1_modelo <- new('seasonM', means = mes_means)
-datos$sin_season1 <- datos$sin_trend - s1_modelo$predict(datos)
+df_train_ts$sin_season1 <- df_train_ts$sin_trend - s1_modelo$predict(df_train_ts)
 
 
 
-plot(datos$Ts, datos$sin_season1)
+plot(df_train_ts$Ts, df_train_ts$sin_season1)
 plot(mes_means)
 ```
 ```{r}
@@ -126,28 +126,33 @@ seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods =
                            return (means$Mean[input$Wday])
                        }))
 
-dia_means <- datos %>% group_by(Wday) %>% summarize(Mean = mean(sin_season1))
+dia_means <- df_train_ts %>% group_by(Wday) %>% summarize(Mean = mean(sin_season1))
 s2_modelo <- new('seasonW', means = dia_means)
-datos$sin_season2 <- datos$sin_season1 - s1_modelo$predict(datos)
+df_train_ts$sin_season2 <- df_train_ts$sin_season1 - s1_modelo$predict(df_train_ts)
 
-plot(datos$Ts, datos$sin_season2)
+plot(df_train_ts$Ts, df_train_ts$sin_season2)
 plot(dia_means)
 ```
 
 ```{r}
-acf(datos$sin_season2)
-m = auto_corr(datos$Unidades, pacf = TRUE)
+acf(df_train_ts$sin_season2)
+m = auto_corr(df_train_ts$Unidades, pacf = TRUE)
 plot(m)
 ```
 Resultado: p = 8 (porque tiene todo) y q = 7 
 ```{r}
-# no funciona .... :(
-R_modelo <-  arima(datos$sin_season2, order=c(8,0,1))
-predict(R_modelo, n.ahead = 365) # predicion para el an~o después
+R_modelo <-  arima(df_train_ts$sin_season2, order=c(8,0,8))
+ # predicion para el an~o después
 
 ```
 Predict final:
 ```{r}
-
-predict_final <- predict(t_modelo, datos) + s1_modelo$predict(datos) + s2_modelo$predict(datos) + predict(R_modelo, datos)
+pred_T <- predict(t_modelo, df_val)
+pred_S1 <- s1_modelo$predict(df_val)
+pred_S2 <- s2_modelo$predict(df_val)
+pred_R <- predict(R_modelo, n.ahead = 365)
+predict_final <- pred_T + pred_S1 + pred_S2 + as.vector(pred_R$pred)
+predict_final[predict_final<0]<-0
+plot(df_val$Ts, predict_final)
+points(df_val$Ts, df_val$Unidades, col = "red")
 ```
