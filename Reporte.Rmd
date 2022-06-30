@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library("readxl")
+library("corrplot")
 ```
 # Lectura de los datos
 Los datos corresponden a la suma de los 365 días que tienen los años 2013, 2014, 2015 y 2017 sumados a los 366 días que tiene los años 2012 y 2016. En total, se tienen 2192 datos.
@@ -15,25 +16,65 @@ Los datos corresponden a la suma de los 365 días que tienen los años 2013, 201
 datos <- read_excel("registros_entrenamiento_festivos.xlsx")
 ```
 
-Los datos originales contienen, únciamente, una variable: La fecha de registro. Para buscar un óptimo análisis, se decidió generar 4 variables nuevas con base a la fecha de registro, estas son: día de la semana, número de día del mes, mes y año.
+## Procesamiento de los datos
+
+Los datos originales contienen, únicamente, una variable: La fecha de registro. Para buscar un óptimo análisis, se decidió generar 4 variables nuevas con base a la fecha de registro, estas son: día de la semana, número de día del mes, mes y año.
 Además, se generó una variable binaria llamada "festivo" para conocer si un día del año es una festividad en Colombia, pues estos días suelen presentar valores atípicos en las unidades registradas y esta variable aporta esta información.
-```{r}
+
+```{r, echo=FALSE}
 datos$Fecha <- as.Date(datos$Fecha)
 datos$Dia_semana <- weekdays(datos$Fecha)
+
 datos$Dia <- format(datos$Fecha, "%d")
 datos$Mes <- format(datos$Fecha, "%m")
 datos$Anio <- format(datos$Fecha, "%y")
 
 datos <- datos[-1]
 datos <- datos[-1]
+
+# Se convertien a numéricos todas las variables excepto el día de la semana
+datos[,c(1,2,4,5,6)] <- sapply(datos[,c(1,2,4,5,6)], as.numeric)
+
+# Se dive la variable día de la semana en n variables binarias
+dummy <- as.data.frame(model.matrix(~ datos$Dia_semana - 1))
+colnames(dummy) <- c("domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado")
+
+# Se unen los dos dataframes
+datos <- subset(datos, select = c(-Dia_semana))
+datos <- cbind(datos, dummy)
+
+datos[, c(2:12)] <- as.data.frame(scale(datos[, c(2:12)], center = TRUE, scale = TRUE))
 ```
 
-## Separación de datos en entrenamiento y validacion
+## Separación de datos en entrenamiento y validación
 De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, tenemos 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
 
-```{r}
-df_train <- datos[datos$Anio != "17", ]
-df_val <- datos[datos$Anio == "17", ]
+```{r, echo=FALSE}
+# df_train <- datos[datos$Anio != "17", ]
+# df_val <- datos[datos$Anio == "17", ]
+datos1 <- sample(2, nrow(datos),
+                   replace = T,
+                   prob = c(0.75, 0.25))
+
+df_train <- datos[datos1 == 1,]
+df_test <- datos[datos1 == 2,]
 ```
 
+# Análisis estadístico
+
+```{r, echo=FALSE}
+corr_train = cor(df_train)
+corrplot(corr_train)
+```
+
+# Modelo de regresión lineal
+
+```{r, echo=FALSE}
+glm_ <- lm(df_train$Unidades ~ ., data = df_train)
+summary(lm_)
+```
+   
+```{r, echo=FALSE}
+df_val$Y_predict <- predict(glm_, newdata=df_val)
+```
 
