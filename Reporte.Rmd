@@ -8,6 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library("readxl")
+library(dplyr)
+library(stats)
+library('simts')
+library('tseries')
 library("corrplot")
 ```
 # Lectura de los datos
@@ -23,15 +27,26 @@ Además, se generó una variable binaria llamada "festivo" para conocer si un d�
 
 ```{r, echo=FALSE}
 datos$Fecha <- as.Date(datos$Fecha)
+datos$Ts <- as.numeric(datos$Fecha)
 datos$Dia_semana <- weekdays(datos$Fecha)
 
 datos$Dia <- format(datos$Fecha, "%d")
-datos$Mes <- format(datos$Fecha, "%m")
+datos$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos$Anio <- format(datos$Fecha, "%y")
+datos$Wday <- lubridate::wday(datos$Fecha, week_start = 1)
 
 datos <- datos[-1]
+```
+
+```{r}
+plot(datos$Ts, datos$Unidades)
+```
+Cosas interesantes:
+En semana santa (aprox por semanas de abril) los días jueves, viernes, sábado y domingo suelen haber pocos registros en todos los años.
+Los días festivos entre semana suelen generar datos atípicos en los días anteriores o posteriores (además de que el día festivo como tal también suele ser atípico)
 datos <- datos[-1]
 
+```{r}
 # Se convertien a numéricos todas las variables excepto el día de la semana
 datos[,c(1,2,4,5,6)] <- sapply(datos[,c(1,2,4,5,6)], as.numeric)
 
@@ -46,7 +61,7 @@ datos <- cbind(datos, dummy)
 datos[, c(2:12)] <- as.data.frame(scale(datos[, c(2:12)], center = TRUE, scale = TRUE))
 ```
 
-## Separación de datos en entrenamiento y validación
+# Separación de datos en entrenamiento y validación
 De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, tenemos 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
 
 ```{r, echo=FALSE}
@@ -78,3 +93,60 @@ summary(lm_)
 df_val$Y_predict <- predict(glm_, newdata=df_val)
 ```
 
+```{r}
+t_modelo <- lm(Unidades ~ Ts,datos)
+T_pred <- predict(t_modelo, datos)
+datos$sin_trend <- datos$Unidades - T_pred
+
+plot(datos$Ts, datos$Unidades)
+lines(datos$Ts, T_pred, type="l", col = "red")
+plot(datos$Ts, datos$sin_trend)
+```
+```{r}
+
+seasonM <- setRefClass("seasonM", fields = list(means = "data.frame"), methods = list(
+                       predict = function(input)
+                       {
+                           return (means$Mean[as.numeric(input$Mes)])
+                       }))
+
+mes_means <- datos %>% group_by(Mes) %>% summarize(Mean = mean(sin_trend))
+s1_modelo <- new('seasonM', means = mes_means)
+datos$sin_season1 <- datos$sin_trend - s1_modelo$predict(datos)
+
+
+
+plot(datos$Ts, datos$sin_season1)
+plot(mes_means)
+```
+```{r}
+seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods = list(
+                       predict = function(input)
+                       {
+                           return (means$Mean[input$Wday])
+                       }))
+
+dia_means <- datos %>% group_by(Wday) %>% summarize(Mean = mean(sin_season1))
+s2_modelo <- new('seasonW', means = dia_means)
+datos$sin_season2 <- datos$sin_season1 - s1_modelo$predict(datos)
+
+plot(datos$Ts, datos$sin_season2)
+plot(dia_means)
+```
+
+```{r}
+acf(datos$sin_season2)
+m = auto_corr(datos$Unidades, pacf = TRUE)
+plot(m)
+```
+Resultado: p = 8 (porque tiene todo) y q = 7 
+```{r}
+# no funciona .... :(
+R_modelo <- arma(datos$sin_season2, order= c(8,7))
+predict(R_modelo)
+```
+Predict final:
+```{r}
+
+predict_final <- predict(t_modelo, datos) + s1_modelo$predict(datos) + s2_modelo$predict(datos) + predict(R_modelo, datos)
+```
