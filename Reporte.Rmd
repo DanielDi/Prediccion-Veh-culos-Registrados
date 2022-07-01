@@ -8,14 +8,16 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library("readxl")
-library(dplyr)
-library(stats)
-library('simts')
-library('tseries')
+library("dplyr")
+library("stats")
+library("simts")
+library("tseries")
 library("corrplot")
-library(forecast)
+library("forecast")
 library("Metrics")
-library('yardstick')
+library("yardstick")
+library("graphics")
+library("randomForest")
 ```
 # Lectura de los datos
 Los datos corresponden a la suma de los 365 días que tienen los años 2013, 2014, 2015 y 2017 sumados a los 366 días que tiene los años 2012 y 2016. En total, se tienen 2192 datos.
@@ -29,20 +31,33 @@ Los datos originales contienen, únicamente, una variable: La fecha de registro.
 Además, se generó una variable binaria llamada "festivo" para conocer si un día del año es una festividad en Colombia, pues estos días suelen presentar valores atípicos en las unidades registradas y esta variable aporta esta información.
 
 ```{r, echo=FALSE}
-datos$Fecha <- as.Date(datos$Fecha)
-datos$Ts <- as.numeric(datos$Fecha)
-datos$Dia_semana <- weekdays(datos$Fecha)
 
+datos_ts <- datos
+datos_ts$Fecha <- as.Date(datos$Fecha)
+datos_ts$Ts <- as.numeric(datos$Fecha)
+datos_ts$Dia_semana <- weekdays(datos$Fecha)
+
+datos_ts$Dia <- format(datos$Fecha, "%d")
+datos_ts$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
+datos_ts$Anio <- format(datos$Fecha, "%y")
+datos_ts$Wday <- lubridate::wday(datos$Fecha, week_start = 1)
+
+
+
+datos$Dia_semana <- weekdays(datos$Fecha)
 datos$Dia <- format(datos$Fecha, "%d")
 datos$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos$Anio <- format(datos$Fecha, "%y")
-datos$Wday <- lubridate::wday(datos$Fecha, week_start = 1)
+datos$Ts <- as.numeric(datos_ts$Fecha)
 
-datos <- datos[-1]
+
+datos_ts <- subset(datos_ts, select = c(-Fecha, -Dia_semana))
+datos <- datos[, -1]
+datos_ts <- datos_ts[, -1]
 ```
 
 ```{r}
-plot(datos$Ts, datos$Unidades)
+plot(datos_ts$Ts, datos_ts$Unidades)
 ```
 Cosas interesantes:
 En semana santa (aprox por semanas de abril) los días jueves, viernes, sábado y domingo suelen haber pocos registros en todos los años.
@@ -50,37 +65,31 @@ Los días festivos entre semana suelen generar datos atípicos en los días ante
 datos <- datos[-1]
 
 ```{r}
-# Se convertien a numéricos todas las variables excepto el día de la semana
-datos[,c(1,2,4,6, 7, 8)] <- sapply(datos[,c(1,2,4,6, 7, 8)], as.numeric)
 
 # Se dive la variable día de la semana en n variables binarias
 dummy <- as.data.frame(model.matrix(~ datos$Dia_semana - 1))
 colnames(dummy) <- c("domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado")
+datos <- subset(datos, select = c(-Dia_semana, -Fecha))
+
+# Se convertien a numéricos todas las variables excepto el día de la semana
+datos[,c(1:5)] <- sapply(datos[,c(1:5)], as.numeric)
 
 # Se unen los dos dataframes
-datos <- subset(datos, select = c(-Dia_semana))
 datos <- cbind(datos, dummy)
-
-# Datos sin escalar
-datos_se <- datos
-
-datos[, c(2:12)] <- as.data.frame(scale(datos[, c(2:12)], center = TRUE, scale = TRUE))
 ```
 
 # Separación de datos en entrenamiento y validación
 De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, tenemos 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
 
 ```{r, echo=FALSE}
-df_train_ts <- datos[datos$Anio != "17", ]
+df_train_ts <- datos_ts[datos_ts$Anio != "17", ]
 df_train_ts <- df_train_ts[df_train_ts$Festivo ==0, ]
 df_train_ts <- df_train_ts[df_train_ts$Wday !=7, ]
-df_val <- datos[datos$Anio == "17", ]
-datos1 <- sample(2, nrow(datos),
-                   replace = T,
-                   prob = c(0.75, 0.25))
 
-df_train <- datos[datos1 == 1,]
-df_test <- datos[datos1 == 2,]
+df_val <- datos_ts[datos_ts$Anio == "17", ]
+
+df_train <- datos[datos$Anio != "17", ]
+df_test <- datos[datos$Anio == "17", ]
 ```
 
 # Análisis estadístico
@@ -94,12 +103,28 @@ corrplot(corr_train)
 
 ```{r, echo=FALSE}
 glm_ <- lm(df_train$Unidades ~ ., data = df_train)
-summary(lm_)
+summary(glm_)
 ```
    
 ```{r, echo=FALSE}
-df_val$Y_predict <- predict(glm_, newdata=df_val)
+df_test$Y_predict <- predict(glm_, newdata=df_test)
+df_test[df_test$Y_predict<0,]$Y_predict<-0
+
+plot(datos$Ts [120:150], df_test$Y_predict[120:150])
+lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
 ```
+```{r}
+
+lm__mae <- Metrics::mae(df_test$Unidades, df_test$Y_predict)
+lm__mse <- Metrics::mse(df_test$Unidades, df_test$Y_predict)
+lm__rmse <- Metrics::rmse(df_test$Unidades, df_test$Y_predict)
+# lm__rsq <- rsq(df_test_se, Unidades, Y_predict)
+paste("Error absoluto medio (MAE): ", lm__mae)
+paste("Error medio cuadrado (MSE): ", lm__mse)
+paste("Error cuadrático medio (RMSE): ", lm__rmse)
+```
+
+
 ## Modelo time series
 ```{r}
 t_modelo <- lm(Unidades ~ Ts,df_train_ts)
@@ -198,9 +223,9 @@ class(R_modelo)
 
 ```{r}
 
-lm__mae <- mae(predict_final$Unidades, predict_final$pred)
-lm__mse <- mse(predict_final$Unidades, predict_final$pred)
-lm__rmse <- rmse(predict_final$Unidades, predict_final$pred)
+lm__mae <- Metrics::mae(predict_final$Unidades, predict_final$pred)
+lm__mse <- Metrics::mse(predict_final$Unidades, predict_final$pred)
+lm__rmse <- Metrics::rmse(predict_final$Unidades, predict_final$pred)
 lm__rsq <- rsq(predict_final, Unidades, pred)
 paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
@@ -211,11 +236,10 @@ paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
 # Random Forest
 
 ```{r}
-# Quitar Fecha
-datos_se2 <- datos_se[,-1][, -3]
+datos_nots <- subset(datos, select = c(-Ts))
 
-df_train_se <- datos_se2[datos_se$Anio != "17", ]
-df_test_se <- datos_se2[datos_se$Anio == "17", ]
+df_train_se <- datos_nots[datos_nots$Anio != "17", ]
+df_test_se <- datos_nots[datos_nots$Anio == "17", ]
 
 rf_model <- randomForest(Unidades ~ ., data=df_train_se, importance=TRUE, proximity=TRUE)
 round(importance(rf_model), 2)
@@ -235,8 +259,8 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 
 ```{r}
 library(graphics)
-plot(datos_se$Ts [120:150], df_test_se$Y_predict[120:150])
-lines (datos_se$Ts[120:150], datos_se$Unidades[120:150], col ="red")
+plot(datos$Ts [120:150], df_test_se$Y_predict[120:150])
+lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
 ```
 
 # Deep learning
