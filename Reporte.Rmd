@@ -236,12 +236,22 @@ paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
 # Random Forest
 
 ```{r}
+set.seed(42)
 datos_nots <- subset(datos, select = c(-Ts))
+# datos_nots<-datos_nots[!(datos_nots$domingo==1 | datos_nots$Festivo==1),]
+# datos_nots <- subset(datos_nots, select = c(-Festivo,-domingo))
 
 df_train_se <- datos_nots[datos_nots$Anio != "17", ]
 df_test_se <- datos_nots[datos_nots$Anio == "17", ]
 
 rf_model <- randomForest(Unidades ~ ., data=df_train_se, importance=TRUE, proximity=TRUE)
+
+# rf_model <- randomForest(
+#               Unidades ~ ., 
+#               data=df_train_se,
+#               importance=TRUE,
+#               ntree=100
+#             )
 round(importance(rf_model), 2)
 rf_model
 ```
