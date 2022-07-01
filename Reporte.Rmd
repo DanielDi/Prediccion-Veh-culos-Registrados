@@ -161,15 +161,14 @@ plot(m)
 ```
 
 ```{r}
-R_modelo <-  arima(df_train_ts$sin_season3, order=c(6,0,5))
-i <- setClass('Arima')
-
+R_modelo <- auto.arima(df_train_ts$sin_season3)
+i <- setClass('forecast_ARIMA')
 ```
 Predición final:
 ```{r}
  # predicion para el an~o después
 
-model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD", r = 'Arima'), methods = list(
+model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD", r = 'forecast_ARIMA'), methods = list(
                        predict_ese = function(data)
                        {
                          data_festivo <- data[as.vector(data$Festivo == 1) | as.vector(data$Wday == 7),]
@@ -190,6 +189,7 @@ modelo_final <- new('model_TS', t = t_modelo, s1 = s1_modelo, s2 = s2_modelo, s3
 predict_final = modelo_final$predict_ese(df_val)
 plot(predict_final$Ts, predict_final$pred)
 points(df_val$Ts, df_val$Unidades, col = "red")
+class(R_modelo)
 ```
 
 ```{r}
