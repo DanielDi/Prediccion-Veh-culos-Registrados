@@ -125,7 +125,9 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 ```
 
 
-## Modelo time series
+## Modelo series de tiempo
+Ahora creamos un modelo de "Box-Jenkins" que basa en interpretar los datos como una serie de tiempo.
+En primer lugar, se sacan la tendencia (trend) de los datos mediante una regresión lineal:
 ```{r}
 t_modelo <- lm(Unidades ~ Ts,df_train_ts)
 T_pred <- predict(t_modelo, df_train_ts)
@@ -135,6 +137,7 @@ plot(df_train_ts$Ts, df_train_ts$Unidades)
 lines(df_train_ts$Ts, T_pred, type="l", col = "red")
 plot(df_train_ts$Ts, df_train_ts$sin_trend)
 ```
+En el primer grafico se encuentra el modelo linear de la tendencia. En la segunda los datos sin la tendencia predictiva. También se pueden ver que hay un efecto sesional cada año. Esperamos que este efecto depende el mes. Podemos ver que especialmente en enero y deciembre hay efectos sesionales. 
 ```{r}
 
 seasonM <- setRefClass("seasonM", fields = list(means = "data.frame"), methods = list(
@@ -152,6 +155,10 @@ df_train_ts$sin_season1 <- df_train_ts$sin_trend - s1_modelo$predict(df_train_ts
 plot(df_train_ts$Ts, df_train_ts$sin_season1)
 plot(mes_means)
 ```
+Todavía podemos observar un efecto sesional, si miramos un año más preciso. Parece como una sesionalidad semanal. 
+```{r}
+plot(df_train_ts$Ts[1:265], df_train_ts$sin_season1[1:265], type = 'line')
+```
 ```{r}
 seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
@@ -166,7 +173,10 @@ df_train_ts$sin_season2 <- df_train_ts$sin_season1 - s2_modelo$predict(df_train_
 plot(df_train_ts$Ts, df_train_ts$sin_season2)
 plot(dia_means)
 ```
-
+Ahora los datos sin los efectos sesionales, tienen todavía un impacto pequeño, sesional: Del mes. 
+```{r}
+plot(df_train_ts$Ts[265:530], df_train_ts$sin_season2[265:530], type = 'line')
+```
 ```{r}
 seasonD <- setRefClass("seasonD", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
@@ -183,6 +193,10 @@ plot(dia_means)
 ```
 
 ```{r}
+plot(df_train_ts$Ts[265:530], df_train_ts$sin_season3[265:530], type = 'line')
+```
+Los datos parecen ahora estacionarios. Y finalmente podemos buscar una prdicción de la autocorelación. Para eso usamos un modelo arima. Los siguientes plots sirven para buscar buenas hiperparámetros del modelo arima. 
+```{r}
 acf(df_train_ts$sin_season3)
 m = auto_corr(df_train_ts$sin_season3, pacf = TRUE)
 plot(m)
@@ -192,7 +206,7 @@ plot(m)
 R_modelo <- auto.arima(df_train_ts$sin_season3)
 i <- setClass('forecast_ARIMA')
 ```
-Predición final:
+Predición final: Al final calculamos la predicción para el año siguiente. Es importante que deshagamos los ajustes por tendencias y estacionalidad, si queremos observar las previsiones de los valores reales de las series del tiempo. Eso significa que añadimos los la predicción del arima, las sesionales y la de la tendencia. Dado que hemos observado que en días festivos y domingos el valor de las unidades siempre es cero o casi cero, predecimos por todos estos días cero. Así recibimos una prediccíon (negro) del modelo Box-Jenkins para las unidades reales (rojo).
 ```{r}
  # predicion para el an~o después
 
@@ -216,8 +230,7 @@ model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= 
 modelo_final <- new('model_TS', t = t_modelo, s1 = s1_modelo, s2 = s2_modelo, s3 = s3_modelo, r= R_modelo)
 predict_final = modelo_final$predict_ese(df_val)
 plot(predict_final$Ts, predict_final$pred)
-points(df_val$Ts, df_val$Unidades, col = "red")
-class(R_modelo)
+lines(df_val$Ts, df_val$Unidades, col = "red")
 ```
 
 
