@@ -181,7 +181,9 @@ model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= 
                          pred_R <- predict(r, n.ahead = length(data_trabajo$Ts))
                          data_trabajo$pred <- pred_T + pred_S1 + pred_S2 + pred_S3 + as.vector(pred_R$pred)
                          data_festivo$pred<-0
-                         return (rbind(data_trabajo, data_festivo ))
+                         result <- (rbind(data_trabajo, data_festivo))
+                         result[result$pred<0,]$pred<-0
+                         return(result)
                        }))
 
 modelo_final <- new('model_TS', t = t_modelo, s1 = s1_modelo, s2 = s2_modelo, s3 = s3_modelo, r= R_modelo)
