@@ -162,43 +162,40 @@ plot(m)
 
 ```{r}
 R_modelo <-  arima(df_train_ts$sin_season3, order=c(6,0,5))
+i <- setClass('Arima')
 
 ```
 Predición final:
 ```{r}
  # predicion para el an~o después
 
-model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD"), methods = list(
-                       predict = function(data)
+model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD", r = 'Arima'), methods = list(
+                       predict_ese = function(data)
                        {
-                         print(data$Festivo)
-                         print((as.vector(data$Festivo == 1) | as.vector(data$Wday == 7)))
+                         data_festivo <- data[as.vector(data$Festivo == 1) | as.vector(data$Wday == 7),]
                          data_trabajo <- data[as.vector(data$Festivo == 0) & as.vector(data$Wday != 7),]
                          pred_T <- predict(t, data_trabajo)
                          pred_S1 <- s1$predict(data_trabajo)
                          pred_S2 <- s2$predict(data_trabajo)
                          pred_S3 <- s3$predict(data_trabajo)
                          pred_R <- predict(r, n.ahead = length(data_trabajo$Ts))
-                         data_trabajo$pred <- pred_T + pred_S1 + pred_S2 + pred_S3 + as.vector(pred_R$prod)
-                         data_festivos$pred<-0
-                         return (rbind(data_trabajo, data_festivos ))
+                         data_trabajo$pred <- pred_T + pred_S1 + pred_S2 + pred_S3 + as.vector(pred_R$pred)
+                         data_festivo$pred<-0
+                         return (rbind(data_trabajo, data_festivo ))
                        }))
 
-modelo_final <- new('model_TS', t = t_modelo, s1 = s1_modelo, s2 = s2_modelo, s3 = s3_modelo)
-predict_final = modelo_final$predict(df_val)
-plot(df_val$Ts, predict_final)
+modelo_final <- new('model_TS', t = t_modelo, s1 = s1_modelo, s2 = s2_modelo, s3 = s3_modelo, r= R_modelo)
+predict_final = modelo_final$predict_ese(df_val)
+plot(predict_final$Ts, predict_final$pred)
 points(df_val$Ts, df_val$Unidades, col = "red")
-df_val$pred_ts <-predict_final
-df_val[as.vector(df_val$Festivo == 1) | as.vector(df_val$Wday == 7),]
 ```
 
 ```{r}
 
-
-lm__mae <- mae(df_val$Unidades, df_val$pred_ts)
-lm__mse <- mse(df_val$Unidades, df_val$pred_ts)
-lm__rmse <- rmse(df_val$Unidades, df_val$pred_ts)
-lm__rsq <- rsq(df_val, Unidades, pred_ts)
+lm__mae <- mae(predict_final$Unidades, predict_final$pred)
+lm__mse <- mse(predict_final$Unidades, predict_final$pred)
+lm__rmse <- rmse(predict_final$Unidades, predict_final$pred)
+lm__rsq <- rsq(predict_final, Unidades, pred)
 paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
