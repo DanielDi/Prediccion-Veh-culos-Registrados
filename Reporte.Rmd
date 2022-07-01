@@ -13,6 +13,9 @@ library(stats)
 library('simts')
 library('tseries')
 library("corrplot")
+library(forecast)
+library("Metrics")
+library('yardstick')
 ```
 # Lectura de los datos
 Los datos corresponden a la suma de los 365 días que tienen los años 2013, 2014, 2015 y 2017 sumados a los 366 días que tiene los años 2012 y 2016. En total, se tienen 2192 datos.
@@ -66,6 +69,8 @@ De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamie
 
 ```{r, echo=FALSE}
 df_train_ts <- datos[datos$Anio != "17", ]
+df_train_ts <- df_train_ts[df_train_ts$Festivo ==0, ]
+df_train_ts <- df_train_ts[df_train_ts$Wday !=7, ]
 df_val <- datos[datos$Anio == "17", ]
 datos1 <- sample(2, nrow(datos),
                    replace = T,
@@ -128,31 +133,71 @@ seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods =
 
 dia_means <- df_train_ts %>% group_by(Wday) %>% summarize(Mean = mean(sin_season1))
 s2_modelo <- new('seasonW', means = dia_means)
-df_train_ts$sin_season2 <- df_train_ts$sin_season1 - s1_modelo$predict(df_train_ts)
+df_train_ts$sin_season2 <- df_train_ts$sin_season1 - s2_modelo$predict(df_train_ts)
 
 plot(df_train_ts$Ts, df_train_ts$sin_season2)
 plot(dia_means)
 ```
 
 ```{r}
-acf(df_train_ts$sin_season2)
-m = auto_corr(df_train_ts$Unidades, pacf = TRUE)
+seasonD <- setRefClass("seasonD", fields = list(means = "data.frame"), methods = list(
+                       predict = function(input)
+                       {
+                           return (means$Mean[as.numeric(input$Dia)])
+                       }))
+
+dia_means <- df_train_ts %>% group_by(Dia) %>% summarize(Mean = mean(sin_season2))
+s3_modelo <- new('seasonD', means = dia_means)
+df_train_ts$sin_season3 <- df_train_ts$sin_season2 - s3_modelo$predict(df_train_ts)
+
+plot(df_train_ts$Ts, df_train_ts$sin_season3)
+plot(dia_means)
+```
+
+```{r}
+acf(df_train_ts$sin_season3)
+m = auto_corr(df_train_ts$sin_season3, pacf = TRUE)
 plot(m)
 ```
-Resultado: p = 8 (porque tiene todo) y q = 7 
+
 ```{r}
-R_modelo <-  arima(df_train_ts$sin_season2, order=c(8,0,8))
- # predicion para el an~o después
+R_modelo <-  arima(df_train_ts$sin_season3, order=c(6,0,5))
 
 ```
-Predict final:
+Predición final:
 ```{r}
-pred_T <- predict(t_modelo, df_val)
-pred_S1 <- s1_modelo$predict(df_val)
-pred_S2 <- s2_modelo$predict(df_val)
-pred_R <- predict(R_modelo, n.ahead = 365)
-predict_final <- pred_T + pred_S1 + pred_S2 + as.vector(pred_R$pred)
-predict_final[predict_final<0]<-0
+ # predicion para el an~o después
+
+model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD", r="arima"), methods = list(
+                       predict = function(data)
+                       {
+                         data_festivo <- data[as.vector(data$Festivo == 1) | as.vector(data$Wday == 7),]
+                         data_trabajo <- data[as.vector(data$Festivo == 0) & as.vector(data$Wday != 7),]
+                         pred_T <- predict(t, data_trabajo)
+                         pred_S1 <- s1$predict(data_trabajo)
+                         pred_S2 <- s2$predict(data_trabajo)
+                         pred_S3 <- s3$predict(data_trabajo)
+                         pred_R <- predict(r, n.ahead = length(data_trabajo$Ts))
+                         data_trabajo$pred <- pred_T + pred_S1 + pred_S2 + pred_S3 + as.vector(pred_R$prod)
+                         data_festivo$pred<-0
+                         return (rbind(data_trabajo, data_festivo ))
+                       }))
+
 plot(df_val$Ts, predict_final)
 points(df_val$Ts, df_val$Unidades, col = "red")
+df_val$pred_ts <-predict_final
+length(df_val$Ts)
+```
+
+```{r}
+
+
+lm__mae <- mae(df_val$Unidades, df_val$pred_ts)
+lm__mse <- mse(df_val$Unidades, df_val$pred_ts)
+lm__rmse <- rmse(df_val$Unidades, df_val$pred_ts)
+lm__rsq <- rsq(df_val, Unidades, pred_ts)
+paste("Error absoluto medio (MAE): ", lm__mae)
+paste("Error medio cuadrado (MSE): ", lm__mse)
+paste("Error cuadrático medio (RMSE): ", lm__rmse)
+paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
 ```
