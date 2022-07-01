@@ -48,7 +48,7 @@ datos <- datos[-1]
 
 ```{r}
 # Se convertien a numéricos todas las variables excepto el día de la semana
-datos[,c(1,2,4,5,6)] <- sapply(datos[,c(1,2,4,5,6)], as.numeric)
+datos[,c(1,2,4,6, 7, 8)] <- sapply(datos[,c(1,2,4,6, 7, 8)], as.numeric)
 
 # Se dive la variable día de la semana en n variables binarias
 dummy <- as.data.frame(model.matrix(~ datos$Dia_semana - 1))
@@ -57,6 +57,9 @@ colnames(dummy) <- c("domingo", "lunes", "martes", "miercoles", "jueves", "viern
 # Se unen los dos dataframes
 datos <- subset(datos, select = c(-Dia_semana))
 datos <- cbind(datos, dummy)
+
+# Datos sin escalar
+datos_se <- datos
 
 datos[, c(2:12)] <- as.data.frame(scale(datos[, c(2:12)], center = TRUE, scale = TRUE))
 ```
@@ -156,3 +159,37 @@ predict_final[predict_final<0]<-0
 plot(df_val$Ts, predict_final)
 points(df_val$Ts, df_val$Unidades, col = "red")
 ```
+
+# Random Forest
+
+```{r}
+# Quitar Fecha
+datos_se2 <- datos_se[,-1]
+datos_aux <- sample(2, nrow(datos_se2),
+                   replace = T,
+                   prob = c(0.75, 0.25))
+
+df_train_se <- datos_se2[datos_aux == 1,]
+df_test_se <- datos_se2[datos_aux == 2,]
+
+rf_model <- randomForest(Unidades ~ ., data=df_train_se, importance=TRUE, proximity=TRUE)
+round(importance(rf_model), 2)
+rf_model
+```
+```{r}
+df_test_se$Y_predict <- predict(rf_model, newdata=df_test_se)
+lm__mae <- mae(df_test_se$Unidades, df_test_se$Y_predict)
+lm__mse <- mse(df_test_se$Unidades, df_test_se$Y_predict)
+lm__rmse <- rmse(df_test_se$Unidades, df_test_se$Y_predict)
+paste("Error absoluto medio (MAE): ", lm__mae)
+paste("Error medio cuadrado (MSE): ", lm__mse)
+paste("Error cuadrático medio (RMSE): ", lm__rmse)
+```
+
+```{r}
+library(graphics)
+plot(datos_se$Ts [120:150], df_test_se$Y_predict[120:150])
+lines (datos_se$Ts[120:150], datos_se$Unidades[120:150], col ="red")
+```
+
+
