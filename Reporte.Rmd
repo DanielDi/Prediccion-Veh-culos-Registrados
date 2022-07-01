@@ -89,6 +89,8 @@ df_train_ts <- df_train_ts[df_train_ts$Wday !=7, ]
 df_val <- datos_ts[datos_ts$Anio == "17", ]
 
 df_train <- datos[datos$Anio != "17", ]
+#df_train_lm <- df_train[df_train$Festivo ==0, ]
+#df_train_lm <- df_train_lm[df_train_lm$domingo ==0, ]
 df_test <- datos[datos$Anio == "17", ]
 ```
 
@@ -115,17 +117,20 @@ summary(glm_)
    
 ```{r, echo=FALSE}
 df_test$Y_predict <- predict(glm_, newdata=df_test)
+df_test[df_test$domingo == 1,]$Y_predict <- 0
+df_test[df_test$Festivo == 1,]$Y_predict <- 0
+
 df_test[df_test$Y_predict<0,]$Y_predict<-0
 
-plot(datos$Ts [120:150], df_test$Y_predict[120:150])
-lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
+plot(df_test$Ts [120:150], df_test$Y_predict[120:150])
+lines (df_test$Ts[120:150], df_test$Unidades[120:150], col ="red")
 ```
 ```{r}
 
 lm__mae <- Metrics::mae(df_test$Unidades, df_test$Y_predict)
 lm__mse <- Metrics::mse(df_test$Unidades, df_test$Y_predict)
 lm__rmse <- Metrics::rmse(df_test$Unidades, df_test$Y_predict)
-# lm__rsq <- rsq(df_test_se, Unidades, Y_predict)
+# lm__rsq <- rsq(df_test, Unidades, Y_predict)
 paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
@@ -284,7 +289,7 @@ lm__rmse <- Metrics::rmse(df_test_se$Unidades, df_test_se$Y_predict)
 paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
-# paste("R^2: ", lm__rsq)
+# paste("R^2: ", lm__rsq$.estimate)
 ```
 
 ```{r}
@@ -371,6 +376,6 @@ lm__rmse <- Metrics::rmse(df_test_se$Unidades, df_test_se$Y_predict)
 paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
-# paste("R^2: ", lm__rsq)
+# paste("R^2: ", lm__rsq$.estimate)
 ```
 
