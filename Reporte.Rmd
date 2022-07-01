@@ -247,9 +247,9 @@ rf_model
 ```
 ```{r}
 df_test_se$Y_predict <- predict(rf_model, newdata=df_test_se)
-lm__mae <- mae(df_test_se$Unidades, df_test_se$Y_predict)
-lm__mse <- mse(df_test_se$Unidades, df_test_se$Y_predict)
-lm__rmse <- rmse(df_test_se$Unidades, df_test_se$Y_predict)
+lm__mae <- Metrics::mae(df_test_se$Unidades, df_test_se$Y_predict)
+lm__mse <- Metrics::mse(df_test_se$Unidades, df_test_se$Y_predict)
+lm__rmse <- Metrics::rmse(df_test_se$Unidades, df_test_se$Y_predict)
 # lm__rsq <- rsq(df_test_se, Unidades, Y_predict)
 paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
