@@ -98,6 +98,13 @@ df_test <- datos[datos$Anio == "17", ]
 corr_train = cor(df_train)
 corrplot(corr_train)
 ```
+E Box-plot de festivos (primero) y de domingos(segundo) muestra que en estos días el valor de unidades es aproximadamente cero;
+```{r, echo=FALSE}
+
+
+boxplot( datos[datos$Festivo==1,]$Unidades)
+boxplot( datos[datos$domingo==1,]$Unidades)
+```
 
 # Modelo de regresión lineal
 
