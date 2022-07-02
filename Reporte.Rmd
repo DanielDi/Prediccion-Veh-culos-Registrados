@@ -20,18 +20,23 @@ library("graphics")
 library("randomForest")
 ```
 # Lectura de los datos
-Los datos corresponden a la suma de los 365 días que tienen los años 2013, 2014, 2015 y 2017 sumados a los 366 días que tiene los años 2012 y 2016. En total, se tienen 2192 datos.
+
+Los datos corresponden a la suma de los 365 días que tienen los años 2013, 2014, 2015 y 2017 sumados a los 366 días que tiene los años 2012 y 2016. En total, se tienen 2192 datos. El conjunto de datos tiene la fecha y la cantidad de vehículos registrados en esa fecha. 
+
 ```{r include=FALSE}
 datos <- read_excel("registros_entrenamiento_festivos.xlsx")
 ```
 
-## Procesamiento de los datos
+# Propósito del proyecto
 
-Los datos originales contienen, únicamente, una variable: La fecha de registro. Para buscar un óptimo análisis, se decidió generar 4 variables nuevas con base a la fecha de registro, estas son: día de la semana, número de día del mes, mes y año.
-Además, se generó una variable binaria llamada "festivo" para conocer si un día del año es una festividad en Colombia, pues estos días suelen presentar valores atípicos en las unidades registradas y esta variable aporta esta información.
+El objetivo del proyecto es aplicar múltiples modelos predictivos sobre este conjunto de datos, obtener las métricas para cada uno de ellos y con base a estas tomar una decisión sobre el que mejor de desempeñe. Para este se toman los años del 2012-2016 como conjunto de entrenamiento, y el año 2017 como conjunto de validación. Finalmente, los resultados serán evaluados con base al R^2 que arroje el modelo para el primer semestre del 2017 y para el primer semestre del 2018.
+
+# Procesamiento de los datos
+
+Los datos originales contienen, únicamente, una variable: La fecha de registro. Para buscar un óptimo análisis, se decide generar 4 variables nuevas con base a la fecha de registro, estas son: día de la semana, número de día del mes, mes y año.
+Además, se generó una variable binaria llamada "festivo" para conocer si un día del año es una festividad en Colombia, pues estos días suelen presentar valores atípicos en las unidades registradas y esta variable aporta esta información. Se dividieron en dos conjuntos de datos para no interferir en el modelo de Series de Tiempo, y se calcula una marca de tiempo (ts) para facilitar las gráficas.
 
 ```{r, echo=FALSE}
-
 datos_ts <- datos
 datos_ts$Fecha <- as.Date(datos$Fecha)
 datos_ts$Ts <- as.numeric(datos$Fecha)
@@ -42,30 +47,20 @@ datos_ts$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos_ts$Anio <- format(datos$Fecha, "%y")
 datos_ts$Wday <- lubridate::wday(datos$Fecha, week_start = 1)
 
-
-
 datos$Dia_semana <- weekdays(datos$Fecha)
 datos$Dia <- format(datos$Fecha, "%d")
 datos$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos$Anio <- format(datos$Fecha, "%y")
 datos$Ts <- as.numeric(datos_ts$Fecha)
 
-
 datos_ts <- subset(datos_ts, select = c(-Fecha, -Dia_semana))
 datos <- datos[, -1]
 datos_ts <- datos_ts[, -1]
 ```
 
-```{r}
-plot(datos_ts$Ts, datos_ts$Unidades)
-```
-Cosas interesantes:
-En semana santa (aprox por semanas de abril) los días jueves, viernes, sábado y domingo suelen haber pocos registros en todos los años.
-Los días festivos entre semana suelen generar datos atípicos en los días anteriores o posteriores (además de que el día festivo como tal también suele ser atípico)
-datos <- datos[-1]
+Para un conjunto de datos se dividió la variable categórica "Dia_semana" en 7 variables binarias (dummies), con el fin de trabajar todo el conjunto con numérico.
 
 ```{r}
-
 # Se dive la variable día de la semana en n variables binarias
 dummy <- as.data.frame(model.matrix(~ datos$Dia_semana - 1))
 colnames(dummy) <- c("domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado")
@@ -78,8 +73,22 @@ datos[,c(1:5)] <- sapply(datos[,c(1:5)], as.numeric)
 datos <- cbind(datos, dummy)
 ```
 
+# Análisis estadístico
+Se presenta un análisis general del conjunto de datos. Esta es una distribución de los registros a través del tiempo:
+
+```{r}
+plot(datos_ts$Ts, datos_ts$Unidades)
+```
+También se analizaron los día festivos y domingos con un BoxPlot: 
+Box-plot de festivos (primero) y de domingos(segundo) muestra que en estos días el valor de unidades es aproximadamente cero;
+```{r, echo=FALSE}
+boxplot( datos[datos$Festivo==1,]$Unidades)
+boxplot( datos[datos$domingo==1,]$Unidades)
+```
+Se puede observar que en estos días los registros de vehículos son aproximadamente 0.  
+
 # Separación de datos en entrenamiento y validación
-De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, tenemos 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
+De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, se tiene 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
 
 ```{r, echo=FALSE}
 df_train_ts <- datos_ts[datos_ts$Anio != "17", ]
@@ -94,27 +103,24 @@ df_train <- datos[datos$Anio != "17", ]
 df_test <- datos[datos$Anio == "17", ]
 ```
 
-# Análisis estadístico
-
+Con el fin de ver las relaciones de las variables predictoras, se realiza un diagrama de correlación: 
 ```{r, echo=FALSE}
 corr_train = cor(df_train)
 corrplot(corr_train)
 ```
-E Box-plot de festivos (primero) y de domingos(segundo) muestra que en estos días el valor de unidades es aproximadamente cero;
-```{r, echo=FALSE}
-
-
-boxplot( datos[datos$Festivo==1,]$Unidades)
-boxplot( datos[datos$domingo==1,]$Unidades)
-```
+Del cual se puede observar que no existen correlaciones fuertes entre las variables predictoras (todas, excepto Ts). Además, se percibe relaciones entre las predictoras y la objetivo.
 
 # Modelo de regresión lineal
 
+Se inicia con un modelo lineal ya que se tienen relaciones lineales entre las variables predictoras y la objetivo. Se utilizaron todas las variables como predictoras, incluyendo las dummies.  
+Este es el resumen del modelo: 
 ```{r, echo=FALSE}
 glm_ <- lm(df_train$Unidades ~ ., data = df_train)
 summary(glm_)
 ```
-   
+Se puede destacar que este arroja un r^2 de aproximadamente 80%, lo que quiere decir que el modelo explica el 80% de la variabilidad de los datos. Esto puede ser considerado un resultado favorable.  
+Con este se hace la respectiva predicción del conjunto de validación, esta gráfica muestra la predicción vs lo real:
+
 ```{r, echo=FALSE}
 df_test$Y_predict <- predict(glm_, newdata=df_test)
 df_test[df_test$domingo == 1,]$Y_predict <- 0
@@ -125,7 +131,9 @@ df_test[df_test$Y_predict<0,]$Y_predict<-0
 plot(df_test$Ts [120:150], df_test$Y_predict[120:150])
 lines (df_test$Ts[120:150], df_test$Unidades[120:150], col ="red")
 ```
-```{r}
+
+Concluyendo con el modelo lineal, se muestran las métricas del MAE, MSE y RMSE para determinar su comportamiento con las predicción de forma analítica:
+```{r, echo=FALSE}
 
 lm__mae <- Metrics::mae(df_test$Unidades, df_test$Y_predict)
 lm__mse <- Metrics::mse(df_test$Unidades, df_test$Y_predict)
@@ -136,11 +144,12 @@ paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
 ```
 
+# Modelo de series de tiempo
 
-## Modelo series de tiempo
-Ahora creamos un modelo de "Box-Jenkins" que basa en interpretar los datos como una serie de tiempo.
-En primer lugar, se sacan la tendencia (trend) de los datos mediante una regresión lineal:
-```{r}
+Ahora se crea un modelo de "Box-Jenkins" que se basa en interpretar los datos como una serie de tiempo.
+En primer lugar, se sacan las tendencias (trend) de los datos mediante una regresión lineal:
+
+```{r, echo=FALSE}
 t_modelo <- lm(Unidades ~ Ts,df_train_ts)
 T_pred <- predict(t_modelo, df_train_ts)
 df_train_ts$sin_trend <- df_train_ts$Unidades - T_pred
@@ -149,8 +158,9 @@ plot(df_train_ts$Ts, df_train_ts$Unidades)
 lines(df_train_ts$Ts, T_pred, type="l", col = "red")
 plot(df_train_ts$Ts, df_train_ts$sin_trend)
 ```
-En el primer grafico se encuentra el modelo linear de la tendencia. En la segunda los datos sin la tendencia predictiva. También se pueden ver que hay un efecto sesional cada año. Esperamos que este efecto depende el mes. Podemos ver que especialmente en enero y deciembre hay efectos sesionales. 
-```{r}
+
+En el primer grafico se encuentra el modelo linear de la tendencia. En la segunda los datos sin la tendencia predictiva. También se pueden ver que hay un efecto estacional cada año. Se espera que este efecto dependa del mes. Se puede ver que especialmente en enero y deciembre hay efectos estacionales.
+```{r, echo=FALSE}
 
 seasonM <- setRefClass("seasonM", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
@@ -162,16 +172,15 @@ mes_means <- df_train_ts %>% group_by(Mes) %>% summarize(Mean = mean(sin_trend))
 s1_modelo <- new('seasonM', means = mes_means)
 df_train_ts$sin_season1 <- df_train_ts$sin_trend - s1_modelo$predict(df_train_ts)
 
-
-
 plot(df_train_ts$Ts, df_train_ts$sin_season1)
 plot(mes_means)
 ```
-Todavía podemos observar un efecto sesional, si miramos un año más preciso. Parece como una sesionalidad semanal. 
-```{r}
+
+Todavía se puede observar un efecto estacional, si se observar un año más preciso. Parece como una estacionalidad semanal. 
+```{r, echo=FALSE}
 plot(df_train_ts$Ts[1:265], df_train_ts$sin_season1[1:265], type = 'line')
 ```
-```{r}
+```{r, echo=FALSE}
 seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
                        {
@@ -185,11 +194,12 @@ df_train_ts$sin_season2 <- df_train_ts$sin_season1 - s2_modelo$predict(df_train_
 plot(df_train_ts$Ts, df_train_ts$sin_season2)
 plot(dia_means)
 ```
-Ahora los datos sin los efectos sesionales, tienen todavía un impacto pequeño, sesional: Del mes. 
-```{r}
+
+Ahora los datos sin los efectos estacionales, tienen todavía un impacto pequeño, estacional: Del mes. 
+```{r, echo=FALSE}
 plot(df_train_ts$Ts[265:530], df_train_ts$sin_season2[265:530], type = 'line')
 ```
-```{r}
+```{r, echo=FALSE}
 seasonD <- setRefClass("seasonD", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
                        {
@@ -207,7 +217,7 @@ plot(dia_means)
 ```{r}
 plot(df_train_ts$Ts[265:530], df_train_ts$sin_season3[265:530], type = 'line')
 ```
-Los datos parecen ahora estacionarios. Y finalmente podemos buscar una prdicción de la autocorelación. Para eso usamos un modelo arima. Los siguientes plots sirven para buscar buenas hiperparámetros del modelo arima. 
+Los datos parecen ahora estacionarios. Y finalmente se puede buscar una predicción de la autocorelación. Para eso se usa un modelo arima. Los siguientes gráficos sirven para buscar buenas hiperparámetros del modelo arima. 
 ```{r}
 acf(df_train_ts$sin_season3)
 m = auto_corr(df_train_ts$sin_season3, pacf = TRUE)
@@ -218,9 +228,9 @@ plot(m)
 R_modelo <- auto.arima(df_train_ts$sin_season3)
 i <- setClass('forecast_ARIMA')
 ```
-Predición final: Al final calculamos la predicción para el año siguiente. Es importante que deshagamos los ajustes por tendencias y estacionalidad, si queremos observar las previsiones de los valores reales de las series del tiempo. Eso significa que añadimos los la predicción del arima, las sesionales y la de la tendencia. Dado que hemos observado que en días festivos y domingos el valor de las unidades siempre es cero o casi cero, predecimos por todos estos días cero. Así recibimos una prediccíon (negro) del modelo Box-Jenkins para las unidades reales (rojo).
+Predición final: Al final se calcula la predicción para el año siguiente. Es importante que se eliminen los ajustes por tendencias y estacionalidad, si se quiere observar las predicciones de los valores reales de las series del tiempo. Eso significa que se añade los la predicción del arima, las estacionales y la de la tendencia. Dado que se ha observado que en días festivos y domingos el valor de las unidades siempre es cero o casi cero, predecimos por todos estos días cero. Así se obtiene una prediccíon (negro) del modelo Box-Jenkins para las unidades reales (rojo).
 ```{r}
- # predicion para el an~o después
+ # predicion para el año después
 
 model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD", r = 'forecast_ARIMA'), methods = list(
                        predict_ese = function(data)
@@ -245,8 +255,8 @@ plot(predict_final$Ts, predict_final$pred)
 lines(df_val$Ts, df_val$Unidades, col = "red")
 ```
 
-
-```{r}
+Finalmente, se tienen las siguientes métricas para este modelo:
+```{r,echo=FALSE}
 
 lm__mae <- Metrics::mae(predict_final$Unidades, predict_final$pred)
 lm__mse <- Metrics::mse(predict_final$Unidades, predict_final$pred)
@@ -259,12 +269,11 @@ paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
 ```
 
 # Random Forest
+Otro modelo que se probó fue el Random Forest. Para este también se tuvo como entrenamiento los anteriores al 2017, y validación el año 2017. Esto se implementó por medio del método *randomFores*. 
 
-```{r}
+```{r, echo=FALSE}
 set.seed(42)
 datos_nots <- subset(datos, select = c(-Ts))
-# datos_nots<-datos_nots[!(datos_nots$domingo==1 | datos_nots$Festivo==1),]
-# datos_nots <- subset(datos_nots, select = c(-Festivo,-domingo))
 
 df_train_se <- datos_nots[datos_nots$Anio != "17", ]
 df_test_se <- datos_nots[datos_nots$Anio == "17", ]
@@ -280,6 +289,17 @@ rf_model <- randomForest(Unidades ~ ., data=df_train_se, importance=TRUE, proxim
 round(importance(rf_model), 2)
 rf_model
 ```
+Lo anterior muestra una tabla con la importancia de las variables. Algo que cabe destacar de este modelo es el que mejor se comporta con los días festivos. 
+
+Una vista general de las predicciones: 
+```{r}
+library(graphics)
+plot(datos$Ts [120:150], df_test_se$Y_predict[120:150])
+lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
+```
+
+Finalmente, se tienen las siguientes métricas analíticas para este modelo:
+
 ```{r}
 df_test_se$Y_predict <- predict(rf_model, newdata=df_test_se)
 lm__mae <- Metrics::mae(df_test_se$Unidades, df_test_se$Y_predict)
@@ -292,15 +312,10 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 # paste("R^2: ", lm__rsq$.estimate)
 ```
 
-```{r}
-library(graphics)
-plot(datos$Ts [120:150], df_test_se$Y_predict[120:150])
-lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
-```
 
 # Deep learning
-
-```{r}
+El último modelo que se probó fue una red neuronal. En principio se tiene algo de 
+```{r, echo=FALSE}
 library(keras)
 library(tfdatasets)
 
@@ -318,13 +333,15 @@ spec <- feature_spec(df_train_se, Unidades ~ . ) %>%
 
 spec
 ```
-```{r}
+
+```{r, echo=FALSE}
 layer <- layer_dense_features(
   feature_columns = dense_features(spec)
 )
 # layer(df_train_se)
 ```
-```{r}
+
+```{r, echo=FALSE}
 build_model <- function() {
   input <- layer_input_from_dataset(df_train_se %>% dplyr::select(-Unidades))
   
@@ -346,7 +363,7 @@ build_model <- function() {
   model
 }
 ```
-```{r}
+```{r, echo=FALSE}
 # Display training progress by printing a single dot for each completed epoch.
 print_dot_callback <- callback_lambda(
   on_epoch_end = function(epoch, logs) {
@@ -366,7 +383,7 @@ history <- model %>% fit(
   callbacks = list(print_dot_callback)
 )
 ```
-```{r}
+```{r, echo=FALSE}
 df_test_se$Y_predict <- model %>% predict(df_test_se %>% dplyr::select(-Unidades))
 
 lm__mae <- Metrics::mae(df_test_se$Unidades, df_test_se$Y_predict)
@@ -378,4 +395,28 @@ paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
 # paste("R^2: ", lm__rsq$.estimate)
 ```
+# Análisis general de los modelos
+Después de presentar los resultados de cada modelo, se decide escoger el modelo con base al MAE. A continuación se presenta un resumen de esto para los 4 modelos:
 
+|Modelo         |MAE  |
+|---------------|-----|
+|Modelo Lineal  |176.8|
+|Serie de tiempo|158.3|
+|Random Forest  |170.4|
+|Red Neuronal   |     |
+
+Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.
+
+# Conclusiones
+
+* Para los días festivos y domingos el RandomForest tiene una mejor predicción, sin embargo en los demás modelos se obtiene muy mala predicción. 
+* La red neuronal puede estar sobre entrenando al modelo, por tal motivo no se consideró mejorarlo para dejarlo como principal.
+* El modelo lineal arrojó resultados muy similares a los del modelo RandomForest, incluso siendo mucho más simple.
+* A las series de tiempo fue al modelo que más se le dedicó debido a que las características del conjunto de datos se acomodaban a este.
+
+# Referencias
+
+[1] GeeksforGeeks. Time Series Analysis in R. (Dic, 2021). https://www.geeksforgeeks.org/time-series-analysis-in-r/
+[2] GeeksforGeeks. Random Forest Approach in R Programming. (Ene, 2020). https://www.geeksforgeeks.org/random-forest-approach-in-r-programming/
+[3] Cory, Maklin. Random Forest In R. (Jul, 2019) https://towardsdatascience.com/random-forest-in-r-f66adf80ec9
+[4] finnstats. Deep Neural Network in R. (Abr, 2021). https://www.r-bloggers.com/2021/04/deep-neural-network-in-r/
