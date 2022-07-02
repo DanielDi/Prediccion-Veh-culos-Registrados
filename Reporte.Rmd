@@ -18,6 +18,8 @@ library("Metrics")
 library("yardstick")
 library("graphics")
 library("randomForest")
+library("ggplot2")
+library("magrittr")
 ```
 # Lectura de los datos
 
@@ -76,18 +78,139 @@ datos <- cbind(datos, dummy)
 # Análisis estadístico
 Se presenta un análisis general del conjunto de datos. Esta es una distribución de los registros a través del tiempo:
 
-```{r}
-plot(datos_ts$Ts, datos_ts$Unidades)
+```{r,echo=FALSE,fig.cap="Figura 1: Vehiculos registrados diariamente del año 2012 a 2017",fig.align='center'}
+plot(datos_ts$Ts, datos_ts$Unidades, xlab="Tiempo",ylab="Vehiculos Registrados", main="Registros diarios de Vehiculos a través del tiempo")
 ```
 También se analizaron los día festivos y domingos con un BoxPlot: 
 Box-plot de festivos (primero) y de domingos(segundo) muestra que en estos días el valor de unidades es aproximadamente cero;
-```{r, echo=FALSE}
-boxplot( datos[datos$Festivo==1,]$Unidades)
-boxplot( datos[datos$domingo==1,]$Unidades)
+```{r, echo=FALSE,fig.cap="Figura 2: BoxPlot vehiculos registrados en dias Festivo",fig.align='center'}
+
+
+festivos <- datos %>% filter(Festivo==1)
+ggplot(festivos, aes(Unidades))+
+  geom_boxplot(col="blue", fill="deepskyblue",alpha=0.5)+
+  ggtitle("BoxPlot de Vehiculos Registrados Festivos")+
+  xlab("Vehiculos Registrados")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
 ```
+```{r, echo=FALSE,fig.cap="Figura 3: BoxPlot vehiculos registrados en dias Domingo",fig.align='center'}
+domingos <- datos %>% filter(domingo==1)
+ggplot(domingos, aes(Unidades))+
+  geom_boxplot(col="blue", fill="deepskyblue",alpha=0.5)+
+  ggtitle("BoxPlot de Vehiculos Registrados Domingos")+
+  xlab("Vehiculos Registrados")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
 Se puede observar que en estos días los registros de vehículos son aproximadamente 0.  
 
+```{r,echo=FALSE,fig.cap="Figura 4: Vehiculos registrados diariamente durante el año 2012",fig.align='center'}
+d<-datos_ts[1:366,]
+plot(d$Ts, d$Unidades, type = "l", xlab="Dias", ylab="Vehiculos Registrados", main = "Comportamiento de los vehiculos registrados en 2012", 
+     col = "red")
+```
+
+Se observa una grafica de los vehiculos registrados respecto al tiempo durnte el año 2012, se observa que presenta una varianza estacional con periodo semanal debido a la disminucion de vehiculos registrados en los dias sabado y los nulos vehiculos registrados los domingos. 
+
+
+```{r,echo=FALSE,fig.cap="Figura 5: BoxPlot de vehiculos registrados desde 2012 hasta 2017",fig.align='center'}
+ggplot(datos_ts, aes(Unidades))+
+  geom_boxplot(col="blue", fill="deepskyblue",alpha=0.5)+
+  ggtitle("BoxPlot de Vehiculos Registrados")+
+  xlab("Vehiculos Registrados")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+En el anterior grafico BoxPlot se observa el comportamiento de la variable Vehiculos Registrados, la posicion de sus cuartiles permite concluir que el 75% de las observaciones estan por debajo de aproximadamente los 1200 vehiculos registrados y asu vez, el 25% estan por debajo de aproxidamadamente los 300 vehiculos registrados.
+
+```{r,echo=FALSE,fig.cap="Figura 6: Grafico de barras del promedio de vehiculos registrados diariamente",fig.align='center'}
+
+unidadesxanio <- datos_ts %>% group_by(Anio) %>% 
+  summarise(und_tot=sum(Unidades))
+
+ggplot(unidadesxanio, aes(x=Anio, y=und_tot))+
+  geom_col(col="blue", fill="blue",alpha=0.5)+
+  ggtitle("Vehiculos Diarios Totales por Año ")+
+  xlab("Año")+
+  ylab("Vehiculos Totales")+
+  geom_text(aes(label=round(und_tot,2)), position = "stack", hjust = 0.5,vjust=-0.2, size=3)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+En el anterior grafico de barras se tienen el total los vehiculos registrados diariamente por año, desde el año 2012 al año 2017. Se obsera que el año con mas vehiculos registrados fue el 2014, ademas de una tendencia negativa a partir de este año hasta el 2017.
+
+
+
+
+
+```{r,echo=FALSE,fig.cap="Figura 7: BoxPlot de Vehiculos Registrados por Mes ",fig.align='center'}
+
+ggplot(datos_ts, aes(x=Mes, y=Unidades))+
+  geom_boxplot(col="blue", fill="deepskyblue",alpha=0.5)+
+  ggtitle("Comportamiento Vehiculos por Mes ")+
+  xlab("Mes")+
+  ylab("Vehiculos Registrados")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+En el anterior grafico BoxPlot se observa el comportamiento de los vehiculos diarios registrados discriminados por el mes. Es notable que las cajas se comportan de forma similar a excepcion del mes de diciembre, donde se observa un rango intercuartil mucho mayor al resto de meses. Tambien permite observar algunos registros atipicos en los meses de junio, octubre, noviembre y diciembre. 
+
+```{r,echo=FALSE,fig.cap="Figura 8: Grafico de barras de los vehiculos registrados promedio por dia de la semana",fig.align='center'}
+
+datos_ts$diasem<-datos_ts$Wday
+datos_ts$diasem<-as.factor(datos_ts$diasem)
+levels(datos_ts$diasem) <- c("Lunes","Martes","Miercoles","Jueves","viernes","Sabado","Domingo") 
+
+unidadesxdia <- datos_ts %>% group_by(diasem) %>% 
+  summarise(und_promedio=mean(Unidades))
+
+ggplot(unidadesxdia, aes(x=diasem, y=und_promedio))+
+  geom_col(col="black",fill="orange",alpha=0.8)+
+  coord_flip()+
+  ggtitle("Promedio Vehiculos Registrados por Dia de la Semana")+
+  xlab("Dias de la Semana")+
+  ylab("Promedio Vehiculos Registrados")+
+  geom_text(aes(label=round(und_promedio,1)), position = "stack", hjust = 0, size=3)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+En el anterior grafico se observan los vehiculos registrados promedio por dia de la semana. Es notable que en los extremos de la semana la media de vehiculos registrados es considerablemente menor a los dias intermedios, alcanzando un pico en el dia viernes. Nuevamente se observa que los dias domingo los registros son 0 o un numero muy bajo y por ende el promedio en este dia es insignificante.
+
+
+```{r,echo=FALSE,fig.cap="Figura 9: Grafico de barras de la distribucion de tipo de dia ",fig.align='center'}
+
+datos_ts$fest<-datos_ts$Festivo
+datos_ts$fest[datos_ts$fest==0] <- "No"
+datos_ts$fest[datos_ts$fest==1] <- "Si"
+
+resum <- datos_ts %>% count(fest, sort=TRUE)
+resum %<>% mutate( porcentaje = 100*round(n/sum(n),3) )
+
+ggplot(resum, aes(x=fest, y=porcentaje))+
+  geom_col(col="purple", fill="purple",alpha=0.5)+
+  ggtitle("Tipo de Dia")+
+  xlab("Festivo")+
+  ylab("Dias Registrados")+
+  geom_text(aes(label=round(porcentaje,2)), position = "stack", hjust = 0.5,vjust=-0.2, size=3)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+Se observa la distribución en porcentaje de los dias comunes y los dias festivos registrados desde el año 2014 hasta el 2017. Los dias festivos representan aproximadamente el 5% de los registros.      
+
+
+
 # Separación de datos en entrenamiento y validación
+
 De los 2192 se plantea usar apróximadamente el 75% de los datos para entrenamiento. Teniendo esto en cuenta, se tiene 1644 días, lo cuál equivale a apróximadamente 4.5 años; con el fin de lograr un adecuado entrenamiento para todos los días de cada año, se extenderá este conjunto de entrenamiento hasta los 5 años, es decir, los días entre 01-01-2012 hasta 31-12-2016 y utilizar los días correspondientes al año 2017 como validación.
 
 ```{r, echo=FALSE}
@@ -103,8 +226,10 @@ df_train <- datos[datos$Anio != "17", ]
 df_test <- datos[datos$Anio == "17", ]
 ```
 
+
+
 Con el fin de ver las relaciones de las variables predictoras, se realiza un diagrama de correlación: 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Figura 10: Grafico de Correlaciones variables predictoras",fig.align='center'}
 corr_train = cor(df_train)
 corrplot(corr_train)
 ```
@@ -121,14 +246,14 @@ summary(glm_)
 Se puede destacar que este arroja un r^2 de aproximadamente 80%, lo que quiere decir que el modelo explica el 80% de la variabilidad de los datos. Esto puede ser considerado un resultado favorable.  
 Con este se hace la respectiva predicción del conjunto de validación, esta gráfica muestra la predicción vs lo real:
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Figura 11: Grafico reales vs predichos del modelo lineal: Grafico de Correlaciones",fig.align='center'}
 df_test$Y_predict <- predict(glm_, newdata=df_test)
 df_test[df_test$domingo == 1,]$Y_predict <- 0
 df_test[df_test$Festivo == 1,]$Y_predict <- 0
 
 df_test[df_test$Y_predict<0,]$Y_predict<-0
 
-plot(df_test$Ts [120:150], df_test$Y_predict[120:150])
+plot(df_test$Ts [120:150], df_test$Y_predict[120:150], main = "Reales vs Predichos")
 lines (df_test$Ts[120:150], df_test$Unidades[120:150], col ="red")
 ```
 
@@ -149,7 +274,9 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 Ahora se crea un modelo de "Box-Jenkins" que se basa en interpretar los datos como una serie de tiempo.
 En primer lugar, se sacan las tendencias (trend) de los datos mediante una regresión lineal:
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Figura 12: Grafico contra el tiempo con la tendencia. Figura 13: Grafico contra el tiempo sin la tendencia predictiva",fig.align='center'}
+layout(matrix(c(1,2), ncol = 2))
+
 t_modelo <- lm(Unidades ~ Ts,df_train_ts)
 T_pred <- predict(t_modelo, df_train_ts)
 df_train_ts$sin_trend <- df_train_ts$Unidades - T_pred
@@ -159,8 +286,10 @@ lines(df_train_ts$Ts, T_pred, type="l", col = "red")
 plot(df_train_ts$Ts, df_train_ts$sin_trend)
 ```
 
-En el primer grafico se encuentra el modelo linear de la tendencia. En la segunda los datos sin la tendencia predictiva. También se pueden ver que hay un efecto estacional cada año. Se espera que este efecto dependa del mes. Se puede ver que especialmente en enero y deciembre hay efectos estacionales.
-```{r, echo=FALSE}
+En el primer grafico se encuentra el modelo lineal de la tendencia. En la segunda los datos sin la tendencia predictiva. También se pueden ver que hay un efecto estacional cada año. Se espera que este efecto dependa del mes. Se puede ver que especialmente en enero y deciembre hay efectos estacionales.
+```{r, echo=FALSE,fig.cap="Figura 14: Serie sin las componentes de tendencia y estacionalidad anual. Figura 15: Promedios de la serie sin las componentes de tendencia y estacionalidad anual",fig.align='center'}
+
+layout(matrix(c(1,2), ncol = 2))
 
 seasonM <- setRefClass("seasonM", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
@@ -176,11 +305,14 @@ plot(df_train_ts$Ts, df_train_ts$sin_season1)
 plot(mes_means)
 ```
 
-Todavía se puede observar un efecto estacional, si se observar un año más preciso. Parece como una estacionalidad semanal. 
-```{r, echo=FALSE}
+Todavía se puede observar un efecto estacional, si se observa un año más preciso. Parece como una estacionalidad semanal. 
+```{r, echo=FALSE,fig.cap="Figura 16: Serie sin las componentes de tendencia y estacionalidad anual para los primeros 265 dias" ,fig.align='center'}
 plot(df_train_ts$Ts[1:265], df_train_ts$sin_season1[1:265], type = 'line')
 ```
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Figura 17: Serie sin las componentes de tendencia y estacionalidad semanal. Figura 18: Promedios de la serie sin las componentes de tendencia y estacionalidad semanal",fig.align='center'}
+
+layout(matrix(c(1,2), ncol = 2))
+
 seasonW <- setRefClass("seasonW", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
                        {
@@ -196,10 +328,12 @@ plot(dia_means)
 ```
 
 Ahora los datos sin los efectos estacionales, tienen todavía un impacto pequeño, estacional: Del mes. 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Figura 19: Serie sin las componentes de tendencia y estacionalidad semanal para los dias 265 al 530",fig.align='center'}
 plot(df_train_ts$Ts[265:530], df_train_ts$sin_season2[265:530], type = 'line')
 ```
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.cap="Figura 20: Serie sin las componentes de tendencia y estacionalidad mensual. Figura 21: Promedios de la serie sin las componentes de tendencia y estacionalidad mensual",fig.align='center'}
+layout(matrix(c(1,2), ncol = 2))
+
 seasonD <- setRefClass("seasonD", fields = list(means = "data.frame"), methods = list(
                        predict = function(input)
                        {
@@ -214,22 +348,27 @@ plot(df_train_ts$Ts, df_train_ts$sin_season3)
 plot(dia_means)
 ```
 
-```{r}
+```{r,echo=FALSE,fig.cap="Figura 22: Serie sin las componentes de tendencia y estacionalidad mensual para los dias 265 al 530",fig.align='center'}
 plot(df_train_ts$Ts[265:530], df_train_ts$sin_season3[265:530], type = 'line')
 ```
 Los datos parecen ahora estacionarios. Y finalmente se puede buscar una predicción de la autocorelación. Para eso se usa un modelo arima. Los siguientes gráficos sirven para buscar buenas hiperparámetros del modelo arima. 
-```{r}
+```{r,echo=FALSE,fig.cap="Figura 23: Grafico ACF",fig.align='center'}
 acf(df_train_ts$sin_season3)
+
+```
+
+```{r,echo=FALSE,fig.cap="Figura 24: Grafico PACF",fig.align='center'}
 m = auto_corr(df_train_ts$sin_season3, pacf = TRUE)
 plot(m)
 ```
+
 
 ```{r}
 R_modelo <- auto.arima(df_train_ts$sin_season3)
 i <- setClass('forecast_ARIMA')
 ```
 Predición final: Al final se calcula la predicción para el año siguiente. Es importante que se eliminen los ajustes por tendencias y estacionalidad, si se quiere observar las predicciones de los valores reales de las series del tiempo. Eso significa que se añade los la predicción del arima, las estacionales y la de la tendencia. Dado que se ha observado que en días festivos y domingos el valor de las unidades siempre es cero o casi cero, predecimos por todos estos días cero. Así se obtiene una prediccíon (negro) del modelo Box-Jenkins para las unidades reales (rojo).
-```{r}
+```{r,echo=FALSE,fig.cap="Figura 25: Reales vs Predichos modelo Time Series",fig.align='center'}
  # predicion para el año después
 
 model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= "seasonW", s3 = "seasonD", r = 'forecast_ARIMA'), methods = list(
@@ -251,7 +390,7 @@ model_TS <- setRefClass("model_TS", fields = list(t = "lm", s1 = "seasonM", s2= 
 
 modelo_final <- new('model_TS', t = t_modelo, s1 = s1_modelo, s2 = s2_modelo, s3 = s3_modelo, r= R_modelo)
 predict_final = modelo_final$predict_ese(df_val)
-plot(predict_final$Ts, predict_final$pred)
+plot(predict_final$Ts, predict_final$pred, main="Reales vs Predichos Time Series")
 lines(df_val$Ts, df_val$Unidades, col = "red")
 ```
 
@@ -292,9 +431,9 @@ rf_model
 Lo anterior muestra una tabla con la importancia de las variables. Algo que cabe destacar de este modelo es el que mejor se comporta con los días festivos. 
 
 Una vista general de las predicciones: 
-```{r}
+```{r,echo=FALSE,fig.cap="Figura 26: Reales vs Predichos Random Forest",fig.align='center'}
 library(graphics)
-plot(datos$Ts [120:150], df_test_se$Y_predict[120:150])
+plot(datos$Ts [120:150], df_test_se$Y_predict[120:150], main = "Reales vs Predichos Random Forest")
 lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
 ```
 
@@ -311,7 +450,6 @@ paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
 # paste("R^2: ", lm__rsq$.estimate)
 ```
-
 
 # Deep learning
 El último modelo que se probó fue una red neuronal. En principio se tiene algo de 
@@ -397,15 +535,15 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 ```
 # Análisis general de los modelos
 Después de presentar los resultados de cada modelo, se decide escoger el modelo con base al MAE. A continuación se presenta un resumen de esto para los 4 modelos:
-
-|Modelo         |MAE  |
-|---------------|-----|
-|Modelo Lineal  |176.8|
-|Serie de tiempo|158.3|
-|Random Forest  |170.4|
-|Red Neuronal   |     |
-
-Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.
+  
+  |Modelo         |MAE  |
+  |---------------|-----|
+  |Modelo Lineal  |176.8|
+  |Serie de tiempo|158.3|
+  |Random Forest  |170.4|
+  |Red Neuronal   |     |
+  
+  Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.
 
 # Conclusiones
 
@@ -417,6 +555,8 @@ Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar
 # Referencias
 
 [1] GeeksforGeeks. Time Series Analysis in R. (Dic, 2021). https://www.geeksforgeeks.org/time-series-analysis-in-r/
-[2] GeeksforGeeks. Random Forest Approach in R Programming. (Ene, 2020). https://www.geeksforgeeks.org/random-forest-approach-in-r-programming/
-[3] Cory, Maklin. Random Forest In R. (Jul, 2019) https://towardsdatascience.com/random-forest-in-r-f66adf80ec9
+  [2] GeeksforGeeks. Random Forest Approach in R Programming. (Ene, 2020). https://www.geeksforgeeks.org/random-forest-approach-in-r-programming/
+  [3] Cory, Maklin. Random Forest In R. (Jul, 2019) https://towardsdatascience.com/random-forest-in-r-f66adf80ec9
 [4] finnstats. Deep Neural Network in R. (Abr, 2021). https://www.r-bloggers.com/2021/04/deep-neural-network-in-r/
+  
+
