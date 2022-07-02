@@ -1,5 +1,5 @@
 ---
-title: "Agrupamiento-Universidades"
+title: "Predicción para el número de vehículos registrados"
 author: "Brayan M. Ortiz Fajardo, Juan Felipe Peña Tamayo, Thalea Marina Hesse, Juan Sebastián Falcon, Daniel Espinal Mosquera"
 date: "`r Sys.Date()`"
 output: html_document
@@ -59,7 +59,7 @@ datos_ts <- datos_ts[, -1]
 
 Para un conjunto de datos se dividió la variable categórica "Dia_semana" en 7 variables binarias (dummies), con el fin de trabajar todo el conjunto con numérico.
 
-```{r}
+```{r, echo=FALSE}
 # Se dive la variable día de la semana en n variables binarias
 dummy <- as.data.frame(model.matrix(~ datos$Dia_semana - 1))
 colnames(dummy) <- c("domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado")
@@ -243,7 +243,7 @@ summary(glm_)
 Se puede destacar que este arroja un r^2 de aproximadamente 80%, lo que quiere decir que el modelo explica el 80% de la variabilidad de los datos. Esto puede ser considerado un resultado favorable.  
 Con este se hace la respectiva predicción del conjunto de validación, esta gráfica muestra la predicción vs lo real:
 
-```{r, echo=FALSE,fig.cap="Figura 11: Grafico reales vs predichos del modelo lineal: Grafico de Correlaciones",fig.align='center'}
+```{r, warning=FALSE, echo=FALSE,fig.cap="Figura 11: Grafico reales vs predichos del modelo lineal: Grafico de Correlaciones",fig.align='center'}
 df_test$Y_predict <- predict(glm_, newdata=df_test)
 df_test[df_test$domingo == 1,]$Y_predict <- 0
 df_test[df_test$Festivo == 1,]$Y_predict <- 0
@@ -284,7 +284,7 @@ plot(df_train_ts$Ts, df_train_ts$sin_trend)
 ```
 
 En el primer grafico se encuentra el modelo lineal de la tendencia. En la segunda los datos sin la tendencia predictiva. También se pueden ver que hay un efecto estacional cada año. Se espera que este efecto dependa del mes. Se puede ver que especialmente en enero y deciembre hay efectos estacionales.
-```{r, echo=FALSE,fig.cap="Figura 14: Serie sin las componentes de tendencia y estacionalidad anual. Figura 15: Promedios de la serie sin las componentes de tendencia y estacionalidad anual",fig.align='center'}
+```{r, warning=FALSE, echo=FALSE,fig.cap="Figura 14: Serie sin las componentes de tendencia y estacionalidad anual. Figura 15: Promedios de la serie sin las componentes de tendencia y estacionalidad anual",fig.align='center'}
 
 layout(matrix(c(1,2), ncol = 2))
 
@@ -303,7 +303,7 @@ plot(mes_means)
 ```
 
 Todavía se puede observar un efecto estacional, si se observa un año más preciso. Parece como una estacionalidad semanal. 
-```{r, echo=FALSE,fig.cap="Figura 16: Serie sin las componentes de tendencia y estacionalidad anual para los primeros 265 dias" ,fig.align='center'}
+```{r, warning=FALSE, echo=FALSE,fig.cap="Figura 16: Serie sin las componentes de tendencia y estacionalidad anual para los primeros 265 dias" ,fig.align='center'}
 plot(df_train_ts$Ts[1:265], df_train_ts$sin_season1[1:265], type = 'line')
 ```
 ```{r, echo=FALSE,fig.cap="Figura 17: Serie sin las componentes de tendencia y estacionalidad semanal. Figura 18: Promedios de la serie sin las componentes de tendencia y estacionalidad semanal",fig.align='center'}
@@ -325,10 +325,10 @@ plot(dia_means)
 ```
 
 Ahora los datos sin los efectos estacionales, tienen todavía un impacto pequeño, estacional: Del mes. 
-```{r, echo=FALSE,fig.cap="Figura 19: Serie sin las componentes de tendencia y estacionalidad semanal para los dias 265 al 530",fig.align='center'}
+```{r, warning=FALSE, echo=FALSE,fig.cap="Figura 19: Serie sin las componentes de tendencia y estacionalidad semanal para los dias 265 al 530",fig.align='center'}
 plot(df_train_ts$Ts[265:530], df_train_ts$sin_season2[265:530], type = 'line')
 ```
-```{r, echo=FALSE,fig.cap="Figura 20: Serie sin las componentes de tendencia y estacionalidad mensual. Figura 21: Promedios de la serie sin las componentes de tendencia y estacionalidad mensual",fig.align='center'}
+```{r, warning=FALSE, echo=FALSE,fig.cap="Figura 20: Serie sin las componentes de tendencia y estacionalidad mensual. Figura 21: Promedios de la serie sin las componentes de tendencia y estacionalidad mensual",fig.align='center'}
 layout(matrix(c(1,2), ncol = 2))
 
 seasonD <- setRefClass("seasonD", fields = list(means = "data.frame"), methods = list(
@@ -345,22 +345,22 @@ plot(df_train_ts$Ts, df_train_ts$sin_season3)
 plot(dia_means)
 ```
 
-```{r,echo=FALSE,fig.cap="Figura 22: Serie sin las componentes de tendencia y estacionalidad mensual para los dias 265 al 530",fig.align='center'}
+```{r,warning=FALSE,echo=FALSE,fig.cap="Figura 22: Serie sin las componentes de tendencia y estacionalidad mensual para los dias 265 al 530",fig.align='center'}
 plot(df_train_ts$Ts[265:530], df_train_ts$sin_season3[265:530], type = 'line')
 ```
 Los datos parecen ahora estacionarios. Y finalmente se puede buscar una predicción de la autocorelación. Para eso se usa un modelo arima. Los siguientes gráficos sirven para buscar buenas hiperparámetros del modelo arima. 
-```{r,echo=FALSE,fig.cap="Figura 23: Grafico ACF",fig.align='center'}
+```{r,warning=FALSE,echo=FALSE,fig.cap="Figura 23: Grafico ACF",fig.align='center'}
 acf(df_train_ts$sin_season3)
 
 ```
 
-```{r,echo=FALSE,fig.cap="Figura 24: Grafico PACF",fig.align='center'}
+```{r,warning=FALSE,echo=FALSE,fig.cap="Figura 24: Grafico PACF",fig.align='center'}
 m = auto_corr(df_train_ts$sin_season3, pacf = TRUE)
 plot(m)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 R_modelo <- auto.arima(df_train_ts$sin_season3)
 i <- setClass('forecast_ARIMA')
 ```
@@ -404,17 +404,17 @@ paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
 ```
 ```{r, echo=FALSE}
 #Predicciones 2012-2017
-library("plyr")
-predictions1 <- rbind.fill(df_train_ts, df_val)
-predictions1 <- subset(predictions1, select = c(-sin_trend, -sin_season1, -sin_season2, -sin_season3))
-predicciones12_17 = modelo_final$predict_ese(predictions1)
-lm__mae <- Metrics::mae(predicciones12_17$Unidades, predicciones12_17$pred)
-lm__rsq <- rsq(predicciones12_17, Unidades, pred)
-paste("Error absoluto medio (MAE): ", lm__mae)
-paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
-
-predicciones12_17 <- subset(predicciones12_17, select = c(-Festivo, -Ts, -Wday, -Unidades))
-write.csv(predicciones12_17, "predicciones_2012_2017.csv")
+# library("plyr")
+# predictions1 <- rbind.fill(df_train_ts, df_val)
+# predictions1 <- subset(predictions1, select = c(-sin_trend, -sin_season1, -sin_season2, -sin_season3))
+# predicciones12_17 = modelo_final$predict_ese(predictions1)
+# lm__mae <- Metrics::mae(predicciones12_17$Unidades, predicciones12_17$pred)
+# lm__rsq <- rsq(predicciones12_17, Unidades, pred)
+# paste("Error absoluto medio (MAE): ", lm__mae)
+# paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
+# 
+# predicciones12_17 <- subset(predicciones12_17, select = c(-Festivo, -Ts, -Wday, -Unidades))
+# write.csv(predicciones12_17, "predicciones_2012_2017.csv")
 ```
 
 # Random Forest
@@ -449,7 +449,7 @@ lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
 
 Finalmente, se tienen las siguientes métricas analíticas para este modelo:
 
-```{r}
+```{r, echo=FALSE}
 df_test_se$Y_predict <- predict(rf_model, newdata=df_test_se)
 lm__mae <- Metrics::mae(df_test_se$Unidades, df_test_se$Y_predict)
 lm__mse <- Metrics::mse(df_test_se$Unidades, df_test_se$Y_predict)
@@ -469,15 +469,12 @@ datos2018$Dia_semana <- weekdays(datos2018$Fecha)
 datos2018$Dia <- format(datos2018$Fecha, "%d")
 datos2018$Mes <- as.factor(as.numeric(format(datos2018$Fecha, "%m")))
 datos2018$Anio <- format(datos2018$Fecha, "%y")
-
-
-
 ```
 
 # Deep learning
 
-El último modelo que se probó fue una red neuronal. En principio se tiene algo de 
-```{r, echo=FALSE}
+El último modelo a probar es una red neuronal:
+```{r, echo=FALSE, message=FALSE}
 library(keras)
 library(tfdatasets)
 tensorflow::set_random_seed(14)
@@ -495,15 +492,16 @@ spec <- feature_spec(df_train_se, Unidades ~ . ) %>%
 
 spec
 ```
+El modelo tiene dos capas RELU.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,message=FALSE}
 layer <- layer_dense_features(
   feature_columns = dense_features(spec)
 )
 # layer(df_train_se)
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 
 build_model <- function() {
   input <- layer_input_from_dataset(df_train_se %>% dplyr::select(-Unidades))
@@ -526,7 +524,7 @@ build_model <- function() {
   model
 }
 ```
-```{r, echo=FALSE}
+```{r, echo=FALSE,message=FALSE}
 # Display training progress by printing a single dot for each completed epoch.
 
 print_dot_callback <- callback_lambda(
@@ -546,7 +544,7 @@ history <- model %>% fit(
   callbacks = list(print_dot_callback)
 )
 ```
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 df_test_se$Y_predict <- model %>% predict(df_test_se %>% dplyr::select(-Unidades))
 
 lm__mae <- Metrics::mae(df_test_se$Unidades, df_test_se$Y_predict)
@@ -560,17 +558,7 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 ```
 # Análisis general de los modelos
 Después de presentar los resultados de cada modelo, se decide escoger el modelo con base al MAE. A continuación se presenta un resumen de esto para los 4 modelos:
-<<<<<<< Updated upstream
-  
-  |Modelo         |MAE  |
-  |---------------|-----|
-  |Modelo Lineal  |176.8|
-  |Serie de tiempo|158.3|
-  |Random Forest  |170.4|
-  |Red Neuronal   |     |
-  
-  Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.
-=======
+
 
 |Modelo         |MAE  |MSE    |RMSE |
 |---------------|-----|-------|-----|
@@ -580,7 +568,6 @@ Después de presentar los resultados de cada modelo, se decide escoger el modelo
 |Red Neuronal   |145.9|83964.3|289.8|
 
 Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.    
->>>>>>> Stashed changes
 
 # Conclusiones
 
