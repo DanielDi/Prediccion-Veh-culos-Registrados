@@ -43,18 +43,15 @@ datos_ts <- datos
 datos_ts$Fecha <- as.Date(datos$Fecha)
 datos_ts$Ts <- as.numeric(datos$Fecha)
 datos_ts$Dia_semana <- weekdays(datos$Fecha)
-
 datos_ts$Dia <- format(datos$Fecha, "%d")
 datos_ts$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos_ts$Anio <- format(datos$Fecha, "%y")
 datos_ts$Wday <- lubridate::wday(datos$Fecha, week_start = 1)
-
 datos$Dia_semana <- weekdays(datos$Fecha)
 datos$Dia <- format(datos$Fecha, "%d")
 datos$Mes <- as.factor(as.numeric(format(datos$Fecha, "%m")))
 datos$Anio <- format(datos$Fecha, "%y")
 datos$Ts <- as.numeric(datos_ts$Fecha)
-
 datos_ts <- subset(datos_ts, select = c(-Fecha, -Dia_semana))
 datos <- datos[, -1]
 datos_ts <- datos_ts[, -1]
@@ -396,7 +393,6 @@ lines(df_val$Ts, df_val$Unidades, col = "red")
 
 Finalmente, se tienen las siguientes métricas para este modelo:
 ```{r,echo=FALSE}
-
 lm__mae <- Metrics::mae(predict_final$Unidades, predict_final$pred)
 lm__mse <- Metrics::mse(predict_final$Unidades, predict_final$pred)
 lm__rmse <- Metrics::rmse(predict_final$Unidades, predict_final$pred)
@@ -405,6 +401,20 @@ paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
 paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
+```
+```{r, echo=FALSE}
+#Predicciones 2012-2017
+library("plyr")
+predictions1 <- rbind.fill(df_train_ts, df_val)
+predictions1 <- subset(predictions1, select = c(-sin_trend, -sin_season1, -sin_season2, -sin_season3))
+predicciones12_17 = modelo_final$predict_ese(predictions1)
+lm__mae <- Metrics::mae(predicciones12_17$Unidades, predicciones12_17$pred)
+lm__rsq <- rsq(predicciones12_17, Unidades, pred)
+paste("Error absoluto medio (MAE): ", lm__mae)
+paste("Error cuadrático medio (R²): ", lm__rsq$.estimate)
+
+predicciones12_17 <- subset(predicciones12_17, select = c(-Festivo, -Ts, -Wday, -Unidades))
+write.csv(predicciones12_17, "predicciones_2012_2017.csv")
 ```
 
 # Random Forest
@@ -428,7 +438,7 @@ rf_model <- randomForest(Unidades ~ ., data=df_train_se, importance=TRUE, proxim
 round(importance(rf_model), 2)
 rf_model
 ```
-Lo anterior muestra una tabla con la importancia de las variables. Algo que cabe destacar de este modelo es el que mejor se comporta con los días festivos. 
+Lo anterior muestra una tabla con la importancia de las variables. Se observa que Festivo es la variable con mayor grado de importancia, al quietar esta variable o la variable domingo, el rendimiento del modelo disminuye mucho. También se observa que todas las variables tienen una importancias mayor al 10%.
 
 Una vista general de las predicciones: 
 ```{r,echo=FALSE,fig.cap="Figura 26: Reales vs Predichos Random Forest",fig.align='center'}
@@ -449,15 +459,29 @@ paste("Error absoluto medio (MAE): ", lm__mae)
 paste("Error medio cuadrado (MSE): ", lm__mse)
 paste("Error cuadrático medio (RMSE): ", lm__rmse)
 # paste("R^2: ", lm__rsq$.estimate)
+
+```
+```{r, echo=FALSE}
+datos2018 <- read.csv("datos_2018_festivos.csv")
+
+datos2018$Fecha <- as.Date(datos2018$Fecha)
+datos2018$Dia_semana <- weekdays(datos2018$Fecha)
+datos2018$Dia <- format(datos2018$Fecha, "%d")
+datos2018$Mes <- as.factor(as.numeric(format(datos2018$Fecha, "%m")))
+datos2018$Anio <- format(datos2018$Fecha, "%y")
+
+
+
 ```
 
 # Deep learning
+
 El último modelo que se probó fue una red neuronal. En principio se tiene algo de 
 ```{r, echo=FALSE}
 library(keras)
 library(tfdatasets)
-
-set.seed(42)
+tensorflow::set_random_seed(14)
+set.seed(14)
 datos_nots <- subset(datos)
 # datos_nots<-datos_nots[!(datos_nots$domingo==1 | datos_nots$Festivo==1),]
 # datos_nots <- subset(datos_nots, select = c(-Festivo,-domingo))
@@ -480,6 +504,7 @@ layer <- layer_dense_features(
 ```
 
 ```{r, echo=FALSE}
+
 build_model <- function() {
   input <- layer_input_from_dataset(df_train_se %>% dplyr::select(-Unidades))
   
@@ -503,6 +528,7 @@ build_model <- function() {
 ```
 ```{r, echo=FALSE}
 # Display training progress by printing a single dot for each completed epoch.
+
 print_dot_callback <- callback_lambda(
   on_epoch_end = function(epoch, logs) {
     if (epoch %% 80 == 0) cat("\n")
@@ -511,7 +537,6 @@ print_dot_callback <- callback_lambda(
 )    
 
 model <- build_model()
-
 history <- model %>% fit(
   x = df_train_se %>% dplyr::select(-Unidades),
   y = df_train_se$Unidades,
@@ -535,6 +560,7 @@ paste("Error cuadrático medio (RMSE): ", lm__rmse)
 ```
 # Análisis general de los modelos
 Después de presentar los resultados de cada modelo, se decide escoger el modelo con base al MAE. A continuación se presenta un resumen de esto para los 4 modelos:
+<<<<<<< Updated upstream
   
   |Modelo         |MAE  |
   |---------------|-----|
@@ -544,10 +570,21 @@ Después de presentar los resultados de cada modelo, se decide escoger el modelo
   |Red Neuronal   |     |
   
   Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.
+=======
+
+|Modelo         |MAE  |MSE    |RMSE |
+|---------------|-----|-------|-----|
+|Modelo Lineal  |176.8|90173.6|300.3|
+|Serie de tiempo|158.3|73706.5|271.5|
+|Random Forest  |170.4|69575.4|263.8|
+|Red Neuronal   |145.9|83964.3|289.8|
+
+Con base a esto, se escoge la Serie de Tiempo como modelo principal para generar los archivos planos que se requieren.    
+>>>>>>> Stashed changes
 
 # Conclusiones
 
-* Para los días festivos y domingos el RandomForest tiene una mejor predicción, sin embargo en los demás modelos se obtiene muy mala predicción. 
+* Para los días festivos y domingos el RandomForest y deep learning tienen una mejor predicción, sin embargo en los demás modelos se obtiene muy mala predicción. Por lo tanto hay que considerar que una misma limpieza puede no ser la mejor en todos los modelos.
 * La red neuronal puede estar sobre entrenando al modelo, por tal motivo no se consideró mejorarlo para dejarlo como principal.
 * El modelo lineal arrojó resultados muy similares a los del modelo RandomForest, incluso siendo mucho más simple.
 * A las series de tiempo fue al modelo que más se le dedicó debido a que las características del conjunto de datos se acomodaban a este.
