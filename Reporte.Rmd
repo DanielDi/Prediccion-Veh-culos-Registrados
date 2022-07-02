@@ -442,10 +442,15 @@ Lo anterior muestra una tabla con la importancia de las variables. Se observa qu
 
 Una vista general de las predicciones: 
 ```{r,echo=FALSE,fig.cap="Figura 26: Reales vs Predichos Random Forest",fig.align='center'}
-library(graphics)
-plot(datos$Ts [120:150], df_test_se$Y_predict[120:150], main = "Reales vs Predichos Random Forest")
-lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
+# library(graphics)
+# plot(datos$Ts [120:150], df_test_se$Y_predict[120:150], main = "Reales vs Predichos Random Forest")
+# lines (datos$Ts[120:150], datos$Unidades[120:150], col ="red")
 ```
+<center>
+
+![your image caption](figura.png)
+
+</center>
 
 Finalmente, se tienen las siguientes métricas analíticas para este modelo:
 
